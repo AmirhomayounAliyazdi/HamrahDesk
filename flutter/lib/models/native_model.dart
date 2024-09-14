@@ -116,7 +116,7 @@ class PlatformFFI {
         : isLinux
             ? DynamicLibrary.open('librustdesk.so')
             : isWindows
-                ? DynamicLibrary.open('librustdesk.dll')
+                ? DynamicLibrary.open('libhamrahdesk.dll')
                 :
                 // Use executable itself as the dynamic library for MacOS.
                 // Multiple dylib instances will cause some global instances to be invalid.
