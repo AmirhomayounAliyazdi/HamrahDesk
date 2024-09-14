@@ -91,7 +91,7 @@ jobs:
           git config --global core.longpaths true
           cargo install flutter_rust_bridge_codegen --version ${{ env.FLUTTER_RUST_BRIDGE_VERSION }} --features "uuid"
           Push-Location flutter ; flutter pub get ; Pop-Location
-          ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk --dart-impl
+          ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk
 
 
       - name: Setup vcpkg with Github Actions binary cache
