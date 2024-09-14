@@ -5,4 +5,4 @@ import 'package:flutter_hbb/generated_bridge.dart'
 final platformFFI = PlatformFFI.instance;
 final localeName = PlatformFFI.localeName;
 
-HamrahDesk get bind => platformFFI.ffiBind;
+HamrahDeskImpl  get bind => platformFFI.ffiBind;
