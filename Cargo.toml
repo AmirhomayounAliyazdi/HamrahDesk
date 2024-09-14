@@ -5,11 +5,11 @@ authors = ["hamrahdesk <info@hamrahhesabeamin.com>"]
 edition = "2021"
 build= "build.rs"
 description = "HamrahDesk Remote Desktop"
-default-run = "rustdesk"
+default-run = "hamrahdesk"
 rust-version = "1.75"
 
 [lib]
-name = "librustdesk"
+name = "libhamrahdesk"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [[bin]]
@@ -172,10 +172,10 @@ members = ["libs/scrap", "libs/hbb_common", "libs/enigo", "libs/clipboard", "lib
 exclude = ["vdi/host", "examples/custom_plugin"]
 
 [package.metadata.winres]
-LegalCopyright = "Copyright © 2024 Purslane Ltd. All rights reserved."
-ProductName = "RustDesk"
-FileDescription = "RustDesk Remote Desktop"
-OriginalFilename = "rustdesk.exe"
+LegalCopyright = "Copyright © 2024 Hamrah Hesabe Amin Ltd. All rights reserved."
+ProductName = "HamrahDesk"
+FileDescription = "HamrahDesk Remote Desktop"
+OriginalFilename = "hamrahdesk.exe"
 
 [target.'cfg(target_os="windows")'.build-dependencies]
 winres = "0.1"
