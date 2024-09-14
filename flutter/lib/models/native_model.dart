@@ -32,7 +32,7 @@ class PlatformFFI {
   // _homeDir is only needed for Android and IOS.
   String _homeDir = '';
   final _eventHandlers = <String, Map<String, HandleEvent>>{};
-  late HamrahDesk _ffiBind;
+  late HamrahDeskImpl _ffiBind;
   late String _appType;
   StreamEventHandler? _eventCallback;
 
@@ -41,7 +41,7 @@ class PlatformFFI {
   static final PlatformFFI instance = PlatformFFI._();
   final _toAndroidChannel = const MethodChannel('mChannel');
 
-  HamrahDesk get ffiBind => _ffiBind;
+  HamrahDeskImpl get ffiBind => _ffiBind;
   F3? _session_get_rgba;
 
   static get localeName => Platform.localeName;
@@ -116,7 +116,7 @@ class PlatformFFI {
         : isLinux
             ? DynamicLibrary.open('librustdesk.so')
             : isWindows
-                ? DynamicLibrary.open('libhamrahdesk.dll')
+                ? DynamicLibrary.open('libHamrahDesk.dll')
                 :
                 // Use executable itself as the dynamic library for MacOS.
                 // Multiple dylib instances will cause some global instances to be invalid.
@@ -230,10 +230,10 @@ class PlatformFFI {
   }
 
   /// Start listening to the Rust core's events and frames.
-  void _startListenEvent(HamrahDesk HamrahDesk) {
+  void _startListenEvent(HamrahDeskImpl HamrahDeskImpl) {
     final appType =
         _appType == kAppTypeDesktopRemote ? '$_appType,$kWindowId' : _appType;
-    var sink = HamrahDesk.startGlobalEventStream(appType: appType);
+    var sink = HamrahDeskImpl.startGlobalEventStream(appType: appType);
     sink.listen((message) {
       () async {
         try {
