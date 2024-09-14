@@ -133,7 +133,7 @@ class PlatformFFI {
       } catch (e) {
         debugPrint('Failed to get documents directory: $e');
       }
-      _ffiBind = HamrahDesk(dylib);
+      _ffiBind = HamrahDeskImpl(dylib);
 
       if (isLinux) {
         if (isMain) {
