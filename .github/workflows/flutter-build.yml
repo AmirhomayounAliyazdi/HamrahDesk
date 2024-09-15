@@ -88,7 +88,7 @@ jobs:
       - name: Install flutter rust bridge deps
         run: |
           git config --global core.longpaths true
-          cargo install flutter_rust_bridge_codegen --features "uuid" --force
+          cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid"
           Push-Location flutter ; flutter pub get ; Pop-Location
           ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk --dart-impl
 
