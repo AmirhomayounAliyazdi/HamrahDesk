@@ -175,15 +175,6 @@ jobs:
           mkdir -p ./SignOutput
           mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/HamrahDesk-${{ env.VERSION }}-x86_64.exe
 
-      - name: Build msi
-        if: env.UPLOAD_ARTIFACT == 'true'
-        run: |
-          pushd ./res/msi
-          python preprocess.py --arp -d ../../HamrahDesk
-          nuget restore msi.sln
-          msbuild msi.sln -p:Configuration=Release -p:Platform=x64 /p:TargetVersion=Windows10
-          mv ./Package/bin/x64/Release/en-us/Package.msi ../../SignOutput/HamrahDesk-${{ env.VERSION }}-x86_64.msi
-          sha256sum ../../SignOutput/HamrahDesk-*.msi
 
       - name: Sign HamrahDesk self-extracted file
         if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != ''
@@ -198,5 +189,4 @@ jobs:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
           files: |
-            ./SignOutput/HamrahDesk-*.msi
             ./SignOutput/HamrahDesk-*.exe
