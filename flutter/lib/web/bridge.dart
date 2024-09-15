@@ -737,7 +737,7 @@ class HamrahDeskImpl {
   }
 
   String mainGetAppNameSync({dynamic hint}) {
-    return 'RustDesk';
+    return 'HamrahDesk';
   }
 
   String mainUriPrefixSync({dynamic hint}) {
