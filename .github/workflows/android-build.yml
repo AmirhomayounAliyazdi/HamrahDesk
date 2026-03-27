@@ -64,6 +64,14 @@ jobs:
           cd /opt
           sudo git clone https://github.com/Kingtous/rustdesk_thirdparty_lib.git --depth=1
 
+      - name: Download RustDesk JNI Libraries (oboe & ndk_compat)
+        run: |
+          mkdir -p flutter/android/app/src/main/jniLibs
+          cd flutter/android/app/src/main/jniLibs
+          wget https://github.com/rustdesk/doc.rustdesk.com/releases/download/console/so.tar.gz
+          tar xzf so.tar.gz
+          rm so.tar.gz
+
       - name: Build Rust Backend (so libraries)
         env:
           VCPKG_ROOT: /opt/rustdesk_thirdparty_lib/vcpkg
