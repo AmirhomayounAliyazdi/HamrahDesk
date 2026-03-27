@@ -58,7 +58,7 @@ jobs:
           flutter build apk --release
 
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: HamrahDesk-Android-APK
           path: flutter/build/app/outputs/flutter-apk/app-release.apk
