@@ -1,0 +1,64 @@
+name: Build HamrahDesk Android
+
+on:
+  workflow_dispatch: # این خط باعث میشه بتونید به صورت دستی از تب Actions بیلد رو اجرا کنید
+  push:
+    branches: [ main, master ]
+
+env:
+  FLUTTER_VERSION: "3.19.6"
+  RUST_VERSION: "1.75.0"
+  NDK_VERSION: "26.1.10909125" # نسخه NDK پیشنهادی
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Install flutter_rust_bridge_codegen
+        run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid"
+
+      - name: Generate Rust Bridge
+        run: |
+          cd flutter
+          flutter pub get
+          ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
+
+      - name: Build Rust Backend (so libraries)
+        run: |
+          cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release
+
+      - name: Build Flutter Android APK
+        run: |
+          cd flutter
+          flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: HamrahDesk-Android-APK
+          path: flutter/build/app/outputs/flutter-apk/app-release.apk
