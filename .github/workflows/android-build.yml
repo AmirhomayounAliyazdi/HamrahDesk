@@ -1,14 +1,14 @@
 name: Build HamrahDesk Android
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # امکان اجرای دستی بیلد از تب Actions
   push:
-    branches: [ main, master ]
+    branches: [ main, master ] # اجرای خودکار با هر بار پوش کردن روی این برنچ‌ها
 
 env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "1.75.0"
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NDK_VERSION: "26.1.10909125"
 
 jobs:
   build-android:
@@ -24,8 +24,6 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # مرحله Setup Android NDK کاملاً حذف شد چون گیت‌هاب خودش NDK را دارد
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -38,8 +36,8 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
 
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk --version 3.5.4
+      - name: Install cargo-ndk (Fixed version & locked)
+        run: cargo install cargo-ndk --version 3.5.4 --locked
 
       - name: Install flutter_rust_bridge_codegen
         run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid"
@@ -51,7 +49,6 @@ jobs:
           ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
       - name: Build Rust Backend (so libraries)
-        # سرورهای گیت‌هاب متغیر ANDROID_NDK_HOME را از قبل تنظیم کرده‌اند
         run: |
           cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release
 
