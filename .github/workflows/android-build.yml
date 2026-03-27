@@ -1,9 +1,9 @@
 name: Build HamrahDesk Android
 
 on:
-  workflow_dispatch: # امکان اجرای دستی بیلد از تب Actions
+  workflow_dispatch:
   push:
-    branches: [ main, master ] # اجرای خودکار با هر بار پوش کردن روی این برنچ‌ها
+    branches: [ main, master ]
 
 env:
   FLUTTER_VERSION: "3.19.6"
@@ -36,11 +36,11 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
 
-      - name: Install cargo-ndk (Fixed version & locked)
+      - name: Install cargo-ndk
         run: cargo install cargo-ndk --version 3.5.4 --locked
 
       - name: Install flutter_rust_bridge_codegen
-        run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid"
+        run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid" --locked
 
       - name: Generate Rust Bridge
         run: |
