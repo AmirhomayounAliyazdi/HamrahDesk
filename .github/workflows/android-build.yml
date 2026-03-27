@@ -49,7 +49,15 @@ jobs:
           flutter pub get
           ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
+      - name: Download Pre-compiled VCPKG for Android
+        run: |
+          cd /opt
+          sudo wget https://github.com/rustdesk/doc.rustdesk.com/releases/download/console/vcpkg-android.tar.gz
+          sudo tar xzf vcpkg-android.tar.gz
+
       - name: Build Rust Backend (so libraries)
+        env:
+          VCPKG_ROOT: /opt/vcpkg
         run: |
           cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release
 
