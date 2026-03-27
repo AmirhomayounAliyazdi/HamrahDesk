@@ -8,7 +8,7 @@ on:
 env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "1.75.0"
-  NDK_VERSION: "27.3.13750724" # نسخه NDK با سرور گیت‌هاب هماهنگ شد
+  NDK_VERSION: "27.3.13750724"
 
 jobs:
   build-android:
@@ -49,16 +49,14 @@ jobs:
           flutter pub get
           ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
-      - name: Install vcpkg (From Source)
+      - name: Get pre-compiled C++ Dependencies (vcpkg)
         run: |
-          git clone https://github.com/microsoft/vcpkg.git $HOME/vcpkg
-          cd $HOME/vcpkg
-          git checkout 1de2026f28ead93ff1773e6e680387643e914ea1
-          ./bootstrap-vcpkg.sh -disableMetrics
+          cd /opt
+          sudo git clone https://github.com/Kingtous/rustdesk_thirdparty_lib.git --depth=1
 
       - name: Build Rust Backend (so libraries)
         env:
-          VCPKG_ROOT: /home/runner/vcpkg
+          VCPKG_ROOT: /opt/rustdesk_thirdparty_lib/vcpkg
           ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
         run: |
           cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release
