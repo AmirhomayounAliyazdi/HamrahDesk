@@ -8,7 +8,6 @@ on:
 env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "1.75.0"
-  NDK_VERSION: "26.1.10909125"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -25,11 +24,7 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        id: setup-ndk
-        with:
-          ndk-version: ${{ env.NDK_VERSION }}
+      # مرحله Setup Android NDK کاملاً حذف شد چون گیت‌هاب خودش NDK را دارد
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -56,8 +51,7 @@ jobs:
           ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
       - name: Build Rust Backend (so libraries)
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        # سرورهای گیت‌هاب متغیر ANDROID_NDK_HOME را از قبل تنظیم کرده‌اند
         run: |
           cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release
 
