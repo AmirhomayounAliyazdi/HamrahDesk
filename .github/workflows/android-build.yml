@@ -35,6 +35,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
+          components: "rustfmt"
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --version 3.5.4 --locked
