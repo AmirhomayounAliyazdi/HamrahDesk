@@ -11,10 +11,9 @@ env:
   NDK_VERSION: "27.3.13750724"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   
-  # ---------- تنظیمات سرور شخصی شما ----------
-  RENDEZVOUS_SERVER: "192.168.1.100" # آی‌پی یا آدرس سرور hbbs خود را اینجا بنویسید
-  RS_PUB_KEY: "YOUR_PUBLIC_KEY_HERE" # محتوای فایل id_ed25519.pub را اینجا پیست کنید
-  # -------------------------------------------
+  # خواندن امن اطلاعات سرور از بخش Secrets گیت‌هاب
+  RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
+  RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
 
 jobs:
   build-android:
@@ -70,7 +69,7 @@ jobs:
           VCPKG_ROOT: /opt/rustdesk_thirdparty_lib/vcpkg
           ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
         run: |
-          cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release
+          cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release --features flutter
 
       - name: Build Flutter Android APK
         run: |
