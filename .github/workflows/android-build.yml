@@ -9,6 +9,12 @@ env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "1.75.0"
   NDK_VERSION: "27.3.13750724"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  
+  # ---------- تنظیمات سرور شخصی شما ----------
+  RENDEZVOUS_SERVER: "192.168.1.100" # آی‌پی یا آدرس سرور hbbs خود را اینجا بنویسید
+  RS_PUB_KEY: "YOUR_PUBLIC_KEY_HERE" # محتوای فایل id_ed25519.pub را اینجا پیست کنید
+  # -------------------------------------------
 
 jobs:
   build-android:
@@ -48,6 +54,11 @@ jobs:
           cd flutter
           flutter pub get
           ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
+
+      - name: Install C/C++ Cross-Compilation Headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib g++-multilib
 
       - name: Get pre-compiled C++ Dependencies (vcpkg)
         run: |
