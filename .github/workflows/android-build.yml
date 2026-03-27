@@ -66,11 +66,27 @@ jobs:
 
       - name: Download RustDesk JNI Libraries (oboe & ndk_compat)
         run: |
-          mkdir -p flutter/android/app/src/main/jniLibs
-          cd flutter/android/app/src/main/jniLibs
-          wget https://github.com/rustdesk/doc.rustdesk.com/releases/download/console/so.tar.gz
-          tar xzf so.tar.gz
-          rm so.tar.gz
+          cd $GITHUB_WORKSPACE
+          URLS=(
+            "https://github.com/rustdesk-org/doc.rustdesk.com/releases/download/console/so.tar.gz"
+            "https://gitee.com/rustdesk/doc.rustdesk.com/releases/download/console/so.tar.gz"
+            "https://web.archive.org/web/20231024103126id_/https://github.com/rustdesk/doc.rustdesk.com/releases/download/console/so.tar.gz"
+          )
+          SUCCESS=false
+          for url in "${URLS[@]}"; do
+            echo "Trying to download from: $url"
+            if curl -sL -f -o so.tar.gz "$url"; then
+              echo "✅ Successfully downloaded!"
+              tar xzf so.tar.gz
+              rm so.tar.gz
+              SUCCESS=true
+              break
+            fi
+          done
+          if [ "$SUCCESS" = false ]; then
+            echo "❌ All download attempts failed!"
+            exit 1
+          fi
 
       - name: Build Rust Backend (so libraries)
         env:
