@@ -8,7 +8,7 @@ on:
 env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "1.75.0"
-  NDK_VERSION: "27.3.13750724"
+  NDK_VERSION: "26.1.10909125"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   
   # خواندن امن اطلاعات سرور از بخش Secrets گیت‌هاب
@@ -35,6 +35,9 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
 
+      - name: Install Android NDK 26.1
+        run: echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;${{ env.NDK_VERSION }}"
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
@@ -59,38 +62,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-multilib g++-multilib
 
-      - name: Get pre-compiled C++ Dependencies (vcpkg)
-        run: |
-          cd /opt
-          sudo git clone https://github.com/Kingtous/rustdesk_thirdparty_lib.git --depth=1
-
-      - name: Download RustDesk JNI Libraries (oboe & ndk_compat)
-        run: |
-          cd $GITHUB_WORKSPACE
-          URLS=(
-            "https://github.com/rustdesk-org/doc.rustdesk.com/releases/download/console/so.tar.gz"
-            "https://gitee.com/rustdesk/doc.rustdesk.com/releases/download/console/so.tar.gz"
-            "https://web.archive.org/web/20231024103126id_/https://github.com/rustdesk/doc.rustdesk.com/releases/download/console/so.tar.gz"
-          )
-          SUCCESS=false
-          for url in "${URLS[@]}"; do
-            echo "Trying to download from: $url"
-            if curl -sL -f -o so.tar.gz "$url"; then
-              echo "✅ Successfully downloaded!"
-              tar xzf so.tar.gz
-              rm so.tar.gz
-              SUCCESS=true
-              break
-            fi
-          done
-          if [ "$SUCCESS" = false ]; then
-            echo "❌ All download attempts failed!"
-            exit 1
-          fi
+      - name: Setup vcpkg with Cache
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: /home/runner/vcpkg
+          vcpkgGitCommitId: 1de2026f28ead93ff1773e6e680387643e914ea1
 
       - name: Build Rust Backend (so libraries)
         env:
-          VCPKG_ROOT: /opt/rustdesk_thirdparty_lib/vcpkg
+          VCPKG_ROOT: /home/runner/vcpkg
           ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
         run: |
           cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release --features flutter
