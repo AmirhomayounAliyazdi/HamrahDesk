@@ -8,19 +8,18 @@ on:
 env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "1.75.0"
-  
-  # FIX 1: Downgrade to NDK 25.2.9519653. 
-  # This matches Flutter 3.19's default and resolves vcpkg/CMake incompatibilities.
-  NDK_VERSION: "25.2.9519653"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   
-  # FIX 2: Define ANDROID_NDK_HOME globally so all steps (vcpkg, cargo-ndk) see it.
+  # تغییر ۱: استفاده از NDK نسخه ۲۵ که با Flutter 3.19 و نسخه vcpkg شما سازگارتر است
+  NDK_VERSION: "25.2.9519653"
+  
+  # تغییر ۲: تعریف مسیر NDK به صورت سراسری در محیط
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
   
-  # FIX 3: Explicitly command vcpkg to KEEP the NDK path during CMake sanitization.
+  # تغییر ۳: دستور به vcpkg برای حفظ مسیر NDK در زمان اجرای CMake
   VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME"
   
-  # Securely read server info from GitHub Secrets
+  # خواندن امن اطلاعات سرور از بخش Secrets گیت‌هاب
   RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
   RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
 
@@ -75,7 +74,6 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: /home/runner/vcpkg
-          # Note: If you ever upgrade to NDK 26+ in the future, you will need to update this commit hash to a 2024+ version.
           vcpkgGitCommitId: 1de2026f28ead93ff1773e6e680387643e914ea1
 
       - name: Compile C++ Dependencies for Android (vcpkg install)
