@@ -8,10 +8,19 @@ on:
 env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "1.75.0"
-  NDK_VERSION: "26.1.10909125"
+  
+  # FIX 1: Downgrade to NDK 25.2.9519653. 
+  # This matches Flutter 3.19's default and resolves vcpkg/CMake incompatibilities.
+  NDK_VERSION: "25.2.9519653"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   
-  # خواندن امن اطلاعات سرور از بخش Secrets گیت‌هاب
+  # FIX 2: Define ANDROID_NDK_HOME globally so all steps (vcpkg, cargo-ndk) see it.
+  ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
+  
+  # FIX 3: Explicitly command vcpkg to KEEP the NDK path during CMake sanitization.
+  VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME"
+  
+  # Securely read server info from GitHub Secrets
   RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
   RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
 
@@ -35,7 +44,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
 
-      - name: Install Android NDK 26.1
+      - name: Install Android NDK
         run: echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;${{ env.NDK_VERSION }}"
 
       - name: Install Rust
@@ -66,12 +75,12 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: /home/runner/vcpkg
+          # Note: If you ever upgrade to NDK 26+ in the future, you will need to update this commit hash to a 2024+ version.
           vcpkgGitCommitId: 1de2026f28ead93ff1773e6e680387643e914ea1
 
       - name: Compile C++ Dependencies for Android (vcpkg install)
         env:
           VCPKG_ROOT: /home/runner/vcpkg
-          ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
         run: |
           $VCPKG_ROOT/vcpkg install --triplet arm-android --x-install-root="$VCPKG_ROOT/installed"
           $VCPKG_ROOT/vcpkg install --triplet arm64-android --x-install-root="$VCPKG_ROOT/installed"
@@ -81,7 +90,6 @@ jobs:
       - name: Build Rust Backend (so libraries)
         env:
           VCPKG_ROOT: /home/runner/vcpkg
-          ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}
         run: |
           cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release --features flutter
 
