@@ -10,13 +10,9 @@ env:
   RUST_VERSION: "1.75.0"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   
-  # تغییر ۱: استفاده از NDK نسخه ۲۵ که با Flutter 3.19 و نسخه vcpkg شما سازگارتر است
+  # استفاده از NDK نسخه ۲۵ 
   NDK_VERSION: "25.2.9519653"
-  
-  # تغییر ۲: تعریف مسیر NDK به صورت سراسری در محیط
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
-  
-  # تغییر ۳: دستور به vcpkg برای حفظ مسیر NDK در زمان اجرای CMake
   VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME"
   
   # خواندن امن اطلاعات سرور از بخش Secrets گیت‌هاب
@@ -77,13 +73,19 @@ jobs:
           vcpkgGitCommitId: 1de2026f28ead93ff1773e6e680387643e914ea1
 
       - name: Compile C++ Dependencies for Android (vcpkg install)
-        env:
-          VCPKG_ROOT: /home/runner/vcpkg
         run: |
-          $VCPKG_ROOT/vcpkg install --triplet arm-android --x-install-root="$VCPKG_ROOT/installed"
-          $VCPKG_ROOT/vcpkg install --triplet arm64-android --x-install-root="$VCPKG_ROOT/installed"
-          $VCPKG_ROOT/vcpkg install --triplet x86-android --x-install-root="$VCPKG_ROOT/installed"
-          $VCPKG_ROOT/vcpkg install --triplet x64-android --x-install-root="$VCPKG_ROOT/installed"
+          # تعریف صریح مسیر NDK و دستور حفظ متغیرها مستقیماً در شل لینوکس
+          export ANDROID_NDK_HOME="/usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}"
+          export VCPKG_KEEP_ENV_VARS="ANDROID_NDK_HOME"
+          
+          # پاک کردن کش‌های خراب مربوط به تشخیص کامپایلر از اجراهای قبلی
+          rm -rf /home/runner/vcpkg/buildtrees/detect_compiler/
+          
+          # اجرای نصب با مسیردهی کامل
+          /home/runner/vcpkg/vcpkg install --triplet arm-android --x-install-root="/home/runner/vcpkg/installed"
+          /home/runner/vcpkg/vcpkg install --triplet arm64-android --x-install-root="/home/runner/vcpkg/installed"
+          /home/runner/vcpkg/vcpkg install --triplet x86-android --x-install-root="/home/runner/vcpkg/installed"
+          /home/runner/vcpkg/vcpkg install --triplet x64-android --x-install-root="/home/runner/vcpkg/installed"
 
       - name: Build Rust Backend (so libraries)
         env:
