@@ -10,14 +10,15 @@ env:
   RUST_VERSION: "stable" 
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   NDK_VERSION: "25.2.9519653"
-  ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
   
-  # دادن آدرس روت VCPKG به اسکریپت بیلد
+  # تعیین هر دو متغیر برای دور زدن باگِ درونِ اسکریپت RustDesk
+  ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
+  ANDROID_NDK: /usr/local/lib/android/sdk/ndk/25.2.9519653
+  
+  # آدرس روت VCPKG
   VCPKG_ROOT: /home/runner/vcpkg
   
-  # این همان متغیری است که مقداردهی نشده بود و باعث ارور پایتون می‌شد
-  VCPKG_FORCE_SYSTEM_BINARIES: "1"
-  VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME;PATH;VCPKG_FORCE_SYSTEM_BINARIES"
+  # حذف کامل VCPKG_KEEP_ENV_VARS برای اجازه دادن به VCPKG جهت رفتار استاندارد
   
   RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
   RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
@@ -73,11 +74,10 @@ jobs:
           restore-keys: |
             vcpkg-android-cache-${{ runner.os }}-
 
-      - name: Clone and Setup vcpkg (To Specific Project Commit)
+      - name: Clone and Setup vcpkg
         run: |
           git clone https://github.com/microsoft/vcpkg.git /home/runner/vcpkg
           cd /home/runner/vcpkg
-          # رفتن به همان کامیتی که سایر کتابخانه‌ها با آن سازگارند
           git checkout 1de2026f28ead93ff1773e6e680387643e914ea1
           ./bootstrap-vcpkg.sh -disableMetrics
 
@@ -85,7 +85,6 @@ jobs:
         run: |
           cd flutter
           chmod +x build_android_deps.sh
-          # بیلد معماری‌ها توسط اسکریپت اصلی پروژه
           ./build_android_deps.sh armeabi-v7a
           ./build_android_deps.sh arm64-v8a
           ./build_android_deps.sh x86
