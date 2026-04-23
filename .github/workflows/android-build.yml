@@ -11,16 +11,12 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   NDK_VERSION: "25.2.9519653"
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
-  
-  # حفظ متغیرهای حیاتی
   VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME;PATH;VCPKG_FORCE_SYSTEM_BINARIES"
-  
   RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
   RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
 
 jobs:
   build-android:
-    # تغییر حیاتی: استفاده از اوبونتو 22.04 برای رفع باگ پایتون/CMake در vcpkg
     runs-on: ubuntu-22.04
     
     steps:
@@ -66,7 +62,11 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: /home/runner/vcpkg
-          vcpkgGitCommitId: 1de2026f28ead93ff1773e6e680387643e914ea1
+          # استفاده از جدیدترین سورس vcpkg برای رفع باگ کرش کردن CMake
+          vcpkgGitCommitId: master
+
+      - name: Clean VCPKG Buildtrees
+        run: rm -rf /home/runner/vcpkg/buildtrees/
 
       - name: Compile C++ Dependencies for Android (vcpkg install)
         run: |
