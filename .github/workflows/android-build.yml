@@ -69,18 +69,26 @@ jobs:
           restore-keys: |
             vcpkg-android-cache-${{ runner.os }}-
 
-      - name: Clone and Setup vcpkg (Manual Bypass)
+      - name: Clone and Setup vcpkg (To Specific Project Commit)
         run: |
-          # دانلود مستقیم و راه‌اندازی بدون واسطه‌ی اکشن‌های متفرقه
+          # دانلود vcpkg و رفتن دقیقاً به همان نسخه‌ای که پروژه شما نیاز دارد
           git clone https://github.com/microsoft/vcpkg.git /home/runner/vcpkg
-          /home/runner/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+          cd /home/runner/vcpkg
+          git checkout 1de2026f28ead93ff1773e6e680387643e914ea1
+          ./bootstrap-vcpkg.sh -disableMetrics
 
-      - name: Compile C++ Dependencies for Android (vcpkg install)
+      - name: Compile C++ Dependencies for Android (using native script)
+        env:
+          # دادن آدرس vcpkg به اسکریپتِ خودِ پروژه
+          VCPKG_ROOT: /home/runner/vcpkg
         run: |
-          /home/runner/vcpkg/vcpkg install --triplet arm-android --x-install-root="/home/runner/vcpkg/installed"
-          /home/runner/vcpkg/vcpkg install --triplet arm64-android --x-install-root="/home/runner/vcpkg/installed"
-          /home/runner/vcpkg/vcpkg install --triplet x86-android --x-install-root="/home/runner/vcpkg/installed"
-          /home/runner/vcpkg/vcpkg install --triplet x64-android --x-install-root="/home/runner/vcpkg/installed"
+          cd flutter
+          chmod +x build_android_deps.sh
+          # حالا از اسکریپت استاندارد خودش استفاده می‌کنیم تا ارورهای NEON و ساختارها حل شود
+          ./build_android_deps.sh armeabi-v7a
+          ./build_android_deps.sh arm64-v8a
+          ./build_android_deps.sh x86
+          ./build_android_deps.sh x86_64
 
       - name: Build Rust Backend (so libraries)
         env:
