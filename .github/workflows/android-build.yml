@@ -12,7 +12,7 @@ env:
   NDK_VERSION: "25.2.9519653"
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
   
-  # فرمول نهایی: حفظ هم‌زمان مسیر NDK، مسیرهای سیستمی (PATH) و اجبار به استفاده از ابزارهای لینوکس
+  # حفظ متغیرهای حیاتی
   VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME;PATH;VCPKG_FORCE_SYSTEM_BINARIES"
   
   RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
@@ -20,7 +20,8 @@ env:
 
 jobs:
   build-android:
-    runs-on: ubuntu-latest
+    # تغییر حیاتی: استفاده از اوبونتو 22.04 برای رفع باگ پایتون/CMake در vcpkg
+    runs-on: ubuntu-22.04
     
     steps:
       - name: Checkout source code
@@ -66,9 +67,6 @@ jobs:
         with:
           vcpkgDirectory: /home/runner/vcpkg
           vcpkgGitCommitId: 1de2026f28ead93ff1773e6e680387643e914ea1
-
-      - name: Clean VCPKG Buildtrees
-        run: rm -rf /home/runner/vcpkg/buildtrees/
 
       - name: Compile C++ Dependencies for Android (vcpkg install)
         run: |
