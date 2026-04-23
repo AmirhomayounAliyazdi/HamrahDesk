@@ -60,10 +60,11 @@ jobs:
           flutter pub get
           ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
-      - name: Install C/C++ Cross-Compilation Headers
+      - name: Install System and C/C++ Cross-Compilation Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-multilib g++-multilib
+          # اضافه کردن ninja-build و cmake برای جلوگیری از دانلود مجدد توسط vcpkg
+          sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config
 
       - name: Setup vcpkg with Cache
         uses: lukka/run-vcpkg@v11
@@ -72,11 +73,17 @@ jobs:
           vcpkgGitCommitId: 1de2026f28ead93ff1773e6e680387643e914ea1
 
       - name: Compile C++ Dependencies for Android (vcpkg install)
+        env:
+          # این دستور vcpkg را مجبور می‌کند از ابزارهای اوبونتو استفاده کند و خطای مفسر را رفع می‌کند
+          VCPKG_FORCE_SYSTEM_BINARIES: "1"
         run: |
+          # اطمینان از تنظیم بودن مسیر NDK در سطح این Step
+          export ANDROID_NDK_HOME="/usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}"
+          
           # پاک کردن کش‌های خراب مربوط به تشخیص کامپایلر از اجراهای قبلی
           rm -rf /home/runner/vcpkg/buildtrees/detect_compiler/
           
-          # اجرای نصب 
+          # اجرای نصب
           /home/runner/vcpkg/vcpkg install --triplet arm-android --x-install-root="/home/runner/vcpkg/installed"
           /home/runner/vcpkg/vcpkg install --triplet arm64-android --x-install-root="/home/runner/vcpkg/installed"
           /home/runner/vcpkg/vcpkg install --triplet x86-android --x-install-root="/home/runner/vcpkg/installed"
