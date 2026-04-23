@@ -7,7 +7,7 @@ on:
 
 env:
   FLUTTER_VERSION: "3.19.6"
-  RUST_VERSION: "1.75.0"
+  RUST_VERSION: "stable" # Updated from 1.75.0 to stable to support Rust 2024 edition
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   
   # استفاده از NDK نسخه ۲۵ 
