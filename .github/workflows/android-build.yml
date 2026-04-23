@@ -7,13 +7,12 @@ on:
 
 env:
   FLUTTER_VERSION: "3.19.6"
-  RUST_VERSION: "stable" # Updated from 1.75.0 to stable to support Rust 2024 edition
+  RUST_VERSION: "stable" 
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   
   # استفاده از NDK نسخه ۲۵ 
   NDK_VERSION: "25.2.9519653"
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
-  VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME"
   
   # خواندن امن اطلاعات سرور از بخش Secrets گیت‌هاب
   RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
@@ -74,14 +73,10 @@ jobs:
 
       - name: Compile C++ Dependencies for Android (vcpkg install)
         run: |
-          # تعریف صریح مسیر NDK و دستور حفظ متغیرها مستقیماً در شل لینوکس
-          export ANDROID_NDK_HOME="/usr/local/lib/android/sdk/ndk/${{ env.NDK_VERSION }}"
-          export VCPKG_KEEP_ENV_VARS="ANDROID_NDK_HOME"
-          
           # پاک کردن کش‌های خراب مربوط به تشخیص کامپایلر از اجراهای قبلی
           rm -rf /home/runner/vcpkg/buildtrees/detect_compiler/
           
-          # اجرای نصب با مسیردهی کامل
+          # اجرای نصب 
           /home/runner/vcpkg/vcpkg install --triplet arm-android --x-install-root="/home/runner/vcpkg/installed"
           /home/runner/vcpkg/vcpkg install --triplet arm64-android --x-install-root="/home/runner/vcpkg/installed"
           /home/runner/vcpkg/vcpkg install --triplet x86-android --x-install-root="/home/runner/vcpkg/installed"
