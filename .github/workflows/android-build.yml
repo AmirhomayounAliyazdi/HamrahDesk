@@ -12,7 +12,11 @@ env:
   NDK_VERSION: "25.2.9519653"
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
   
-  # حفظ متغیرهای حیاتی برای اندروید
+  # دادن آدرس روت VCPKG به اسکریپت بیلد
+  VCPKG_ROOT: /home/runner/vcpkg
+  
+  # این همان متغیری است که مقداردهی نشده بود و باعث ارور پایتون می‌شد
+  VCPKG_FORCE_SYSTEM_BINARIES: "1"
   VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME;PATH;VCPKG_FORCE_SYSTEM_BINARIES"
   
   RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
@@ -56,10 +60,9 @@ jobs:
           flutter pub get
           ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
-      - name: Install System Dependencies (Updated with Assembly Compilers)
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
-          # اضافه شدن nasm و yasm و meson که برای کامپایل FFmpeg و libvpx ضروری هستند
           sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config nasm yasm meson python3 python3-pip
 
       - name: Cache vcpkg Binary Archives
@@ -74,23 +77,21 @@ jobs:
         run: |
           git clone https://github.com/microsoft/vcpkg.git /home/runner/vcpkg
           cd /home/runner/vcpkg
+          # رفتن به همان کامیتی که سایر کتابخانه‌ها با آن سازگارند
           git checkout 1de2026f28ead93ff1773e6e680387643e914ea1
           ./bootstrap-vcpkg.sh -disableMetrics
 
       - name: Compile C++ Dependencies for Android (using native script)
-        env:
-          VCPKG_ROOT: /home/runner/vcpkg
         run: |
           cd flutter
           chmod +x build_android_deps.sh
+          # بیلد معماری‌ها توسط اسکریپت اصلی پروژه
           ./build_android_deps.sh armeabi-v7a
           ./build_android_deps.sh arm64-v8a
           ./build_android_deps.sh x86
           ./build_android_deps.sh x86_64
 
       - name: Build Rust Backend (so libraries)
-        env:
-          VCPKG_ROOT: /home/runner/vcpkg
         run: |
           cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release --features flutter
 
