@@ -66,8 +66,8 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: /home/runner/vcpkg
-          # بازگشت به هش ۴۰ کاراکتری استاندارد برای رفع ارور اکشن
-          vcpkgGitCommitId: 1de2026f28ead93ff1773e6e680387643e914ea1
+          # استفاده از هش ۴۰ کاراکتریِ پایدار و تست‌شده
+          vcpkgGitCommitId: 4bac96a8c817beda37448f9b8c662162bb619981
 
       - name: Clean VCPKG Buildtrees
         run: rm -rf /home/runner/vcpkg/buildtrees/
