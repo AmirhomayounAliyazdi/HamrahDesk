@@ -12,7 +12,7 @@ env:
   NDK_VERSION: "25.2.9519653"
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
   
-  # حفظ متغیرهای حیاتی
+  # حفظ متغیرهای حیاتی برای اندروید
   VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME;PATH;VCPKG_FORCE_SYSTEM_BINARIES"
   
   RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
@@ -20,7 +20,6 @@ env:
 
 jobs:
   build-android:
-    # استفاده از اوبونتو 22.04 برای رفع باگ پایتون در اسکریپت vcpkg
     runs-on: ubuntu-22.04
     
     steps:
@@ -62,15 +61,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config
 
-      - name: Setup vcpkg with Cache
-        uses: lukka/run-vcpkg@v11
+      - name: Cache vcpkg Binary Archives
+        uses: actions/cache@v4
         with:
-          vcpkgDirectory: /home/runner/vcpkg
-          # استفاده از هش ۴۰ کاراکتریِ پایدار و تست‌شده
-          vcpkgGitCommitId: 4bac96a8c817beda37448f9b8c662162bb619981
+          path: /home/runner/.cache/vcpkg/archives
+          key: vcpkg-android-cache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            vcpkg-android-cache-${{ runner.os }}-
 
-      - name: Clean VCPKG Buildtrees
-        run: rm -rf /home/runner/vcpkg/buildtrees/
+      - name: Clone and Setup vcpkg (Manual Bypass)
+        run: |
+          # دانلود مستقیم و راه‌اندازی بدون واسطه‌ی اکشن‌های متفرقه
+          git clone https://github.com/microsoft/vcpkg.git /home/runner/vcpkg
+          /home/runner/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
       - name: Compile C++ Dependencies for Android (vcpkg install)
         run: |
