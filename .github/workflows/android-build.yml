@@ -18,8 +18,6 @@ env:
   # آدرس روت VCPKG
   VCPKG_ROOT: /home/runner/vcpkg
   
-  # حذف کامل VCPKG_KEEP_ENV_VARS برای اجازه دادن به VCPKG جهت رفتار استاندارد
-  
   RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
   RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
 
@@ -43,23 +41,29 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
 
+      - name: Remove hardcoded rust-toolchain files
+        run: rm -f rust-toolchain rust-toolchain.toml
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
 
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk --version 3.5.4 --locked
+      - name: Install cargo-binstall (Bypass source compilation)
+        uses: cargo-bins/cargo-binstall@main
 
-      - name: Install flutter_rust_bridge_codegen
-        run: cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid" --locked
+      - name: Install cargo-ndk via binstall
+        run: cargo binstall cargo-ndk --version 3.5.4 -y
+
+      - name: Install flutter_rust_bridge_codegen via binstall
+        run: cargo binstall flutter_rust_bridge_codegen --version 1.80.1 -y
 
       - name: Generate Rust Bridge
         run: |
           cd flutter
           flutter pub get
-          ~/.cargo/bin/flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
+          flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
       - name: Install System Dependencies
         run: |
