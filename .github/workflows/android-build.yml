@@ -8,7 +8,6 @@ on:
 env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "stable" 
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   NDK_VERSION: "25.2.9519653"
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
   VCPKG_ROOT: /home/runner/vcpkg
@@ -18,86 +17,70 @@ jobs:
     runs-on: ubuntu-22.04
     
     steps:
-      - name: Checkout source code
+      - name: Checkout HamrahDesk
         uses: actions/checkout@v4
 
-      - name: Clean and Setup Env
+      - name: Clean environment
         run: |
           rm -f rust-toolchain rust-toolchain.toml
-          # پاک کردن هرگونه اثر از vcpkg قبلی برای جلوگیری از تداخل ابزارها
           sudo rm -rf /home/runner/vcpkg
-          sudo rm -rf /home/runner/.cache/vcpkg
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.RUST_VERSION }}
-          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
+          targets: aarch64-linux-android, armv7-linux-androideabi
 
       - name: Install Build Tools
-        uses: taiki-e/install-action@cargo-binstall
-
-      - name: Install Cargo Dependencies
         run: |
-          cargo binstall cargo-ndk --version 3.5.4 -y
-          cargo binstall flutter_rust_bridge_codegen --version 1.80.1 -y
-
-      - name: Install System Dependencies
-        run: |
+          cargo install cargo-ndk --version 3.5.4 --locked
+          cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid" --locked
           sudo apt-get update
-          sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config nasm yasm meson python3
+          sudo apt-get install -y ninja-build cmake nasm yasm meson
 
-      - name: Clone and Bootstrap vcpkg (Latest Stable)
+      - name: Clone vcpkg (Full History to fix Git 128)
         run: |
-          git clone --depth 1 https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
-          $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics
+          git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
+          $VCPKG_ROOT/bootstrap-vcpkg.sh
 
-      - name: Build C++ Dependencies
+      - name: Build C++ Dependencies (With Full Error Logging)
         env:
-          # اجبار به استفاده از ابزارهای سیستم برای رفع باگ CMake vcpkg
           VCPKG_FORCE_SYSTEM_BINARIES: "1"
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
           ANDROID_NDK: ${{ env.ANDROID_NDK_HOME }}
         run: |
           cd flutter
-          # ساخت دستی دایرکتوری برای جلوگیری از ارور vcpkg
-          mkdir -p $VCPKG_ROOT/installed
           chmod +x build_android_deps.sh
-          # تزریق مستقیم مسیرها به اسکریپت
-          ./build_android_deps.sh armeabi-v7a
+          # تلاش برای بیلد و در صورت شکست، چاپ تمام لاگ‌ها
+          if ! ./build_android_deps.sh armeabi-v7a; then
+            echo "--------------------------------------------------------"
+            echo "!!! BUILD FAILED - PRINTING FULL ERROR LOGS BELOW !!!"
+            echo "--------------------------------------------------------"
+            find /home/runner/vcpkg/buildtrees -name "*.log" -exec echo "FILE: {}" \; -exec cat {} \;
+            exit 1
+          fi
           ./build_android_deps.sh arm64-v8a
           ./build_android_deps.sh x86
           ./build_android_deps.sh x86_64
 
-      - name: Generate Rust Bridge
+      - name: Generate Bridge
         run: |
           cd flutter
           flutter pub get
           flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
-      - name: Build Rust Backend
+      - name: Build Rust & APK
         run: |
-          cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release --features flutter
-
-      - name: Build Flutter Android APK
-        run: |
+          cargo ndk -t armeabi-v7a -t arm64-v8a -o flutter/android/app/src/main/jniLibs build --release --features flutter
           cd flutter
           flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HamrahDesk-Android-APK
+          name: HamrahDesk-APK
           path: flutter/build/app/outputs/flutter-apk/app-release.apk
