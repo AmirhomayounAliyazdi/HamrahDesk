@@ -10,19 +10,9 @@ env:
   RUST_VERSION: "stable" 
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   NDK_VERSION: "25.2.9519653"
-  
-  # تنظیم مسیرهای NDK
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
-  ANDROID_NDK: /usr/local/lib/android/sdk/ndk/25.2.9519653
-  
+  ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/25.2.9519653
   VCPKG_ROOT: /home/runner/vcpkg
-  
-  # اجبار به استفاده از ابزارهای سیستم برای رفع خطای INTERPRETER
-  VCPKG_FORCE_SYSTEM_BINARIES: "1"
-  VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME;ANDROID_NDK;PATH;VCPKG_ROOT;VCPKG_FORCE_SYSTEM_BINARIES"
-  
-  RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
-  RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
 
 jobs:
   build-android:
@@ -32,8 +22,11 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Remove hardcoded rust-toolchain
-        run: rm -f rust-toolchain rust-toolchain.toml
+      - name: Clean environment
+        run: |
+          rm -f rust-toolchain rust-toolchain.toml
+          # پاک کردن هرگونه تنظیمات قبلی vcpkg برای شروع تمیز
+          rm -rf /home/runner/vcpkg
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -53,11 +46,9 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
 
-      - name: Install Tools via Cargo
-        uses: cargo-bins/cargo-binstall@main
-
-      - name: Binstall Dependencies
+      - name: Install Compilers via Binstall
         run: |
+          curl -L https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tar.gz | tar -xvzf - -C ~/.cargo/bin
           cargo binstall cargo-ndk --version 3.5.4 -y
           cargo binstall flutter_rust_bridge_codegen --version 1.80.1 -y
 
@@ -70,20 +61,25 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config nasm yasm meson python3 python3-pip
+          sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config nasm yasm meson python3
 
-      - name: Clone and Setup vcpkg (Latest Master)
+      - name: Clone and Setup vcpkg (Fixed Version)
         run: |
-          # دانلود آخرین نسخه برای داشتن تمام دیتابیس‌های نسخه جدید
           git clone https://github.com/microsoft/vcpkg.git /home/runner/vcpkg
-          /home/runner/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+          cd /home/runner/vcpkg
+          # این نسخه هماهنگی کاملی با NDK و CMake 28 دارد
+          git checkout 363930bccfdb379373981881699f574d7549079a
+          ./bootstrap-vcpkg.sh -disableMetrics
 
-      - name: Compile C++ Dependencies for Android
+      - name: Compile C++ Dependencies
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+          VCPKG_FORCE_SYSTEM_BINARIES: 1
         run: |
           cd flutter
           chmod +x build_android_deps.sh
-          # تزریق مستقیم مسیر NDK و اجرای اسکریپت بیلد
-          export ANDROID_NDK_HOME=$ANDROID_NDK
+          # اجرای مستقیم برای تک تک معماری‌ها با تزریق دستی مسیر NDK
+          export ANDROID_NDK=$ANDROID_NDK_HOME
           ./build_android_deps.sh armeabi-v7a
           ./build_android_deps.sh arm64-v8a
           ./build_android_deps.sh x86
