@@ -11,12 +11,14 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   NDK_VERSION: "25.2.9519653"
   
-  # تعیین هر دو متغیر برای دور زدن گرهِ درونِ اسکریپت
+  # دادن آدرس دقیق NDK برای عبور از گره‌های اسکریپت
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
   ANDROID_NDK: /usr/local/lib/android/sdk/ndk/25.2.9519653
   
-  # نشانی روت VCPKG
   VCPKG_ROOT: /home/runner/vcpkg
+  
+  # نکته حیاتی: وادار کردن VCPKG به نگه داشتن مسیر NDK برای کامپایلر
+  VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME;ANDROID_NDK;PATH"
   
   RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
   RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
@@ -29,6 +31,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      # پاک کردن فایل‌های مخفی که نسخه راست را به گذشته برمی‌گردانند
       - name: Remove hardcoded rust-toolchain files
         run: rm -f rust-toolchain rust-toolchain.toml
 
@@ -50,6 +53,7 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
 
+      # استفاده از binstall برای نصب بی‌درنگ و گذر از خطای edition2024
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@main
 
@@ -82,7 +86,8 @@ jobs:
         run: |
           git clone https://github.com/microsoft/vcpkg.git /home/runner/vcpkg
           cd /home/runner/vcpkg
-          # پاک شدن دستورِ قفل روی نگارش کهنه برای دریافت تازه‌ترین راه‌اندازها
+          # رفتن به کامیتی که با کدهای C++ همخوانی صددرصد دارد
+          git checkout 1de2026f28ead93ff1773e6e680387643e914ea1
           ./bootstrap-vcpkg.sh -disableMetrics
 
       - name: Compile C++ Dependencies for Android
