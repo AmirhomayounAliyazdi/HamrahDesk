@@ -8,9 +8,9 @@ on:
 env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "stable" 
-  # وادار کردن سیستم به استفاده از گره‌های پایدار
+  # آدرس دقیق NDK پایدار برای این پروژه
+  ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
   VCPKG_ROOT: /home/runner/vcpkg
-  VCPKG_FORCE_SYSTEM_BINARIES: "1"
 
 jobs:
   build-android:
@@ -19,11 +19,19 @@ jobs:
     steps:
       - name: Checkout HamrahDesk
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # دریافت کامل تاریخچه برای جلوگیری از ارور گیت
 
-      - name: Clean Start
+      - name: Clean and Fix Manifest
         run: |
           rm -f rust-toolchain rust-toolchain.toml
-          sudo rm -rf /home/runner/vcpkg
+          # پاک کردن Baseline از فایل vcpkg.json برای جلوگیری از ارور versions/baseline.json
+          if [ -f "vcpkg.json" ]; then
+            sed -i '/"builtin-baseline":/d' vcpkg.json
+          fi
+          if [ -f "flutter/vcpkg.json" ]; then
+            sed -i '/"builtin-baseline":/d' flutter/vcpkg.json
+          fi
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -40,45 +48,35 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build cmake nasm yasm meson
-          # اطمینان از اینکه نینجا در همه جا در دسترس است
-          sudo ln -sf /usr/bin/ninja /usr/bin/make
-
-      - name: Setup Tools via Cargo
-        run: |
+          # نصب مستقیم کدژن و ndk-cargo
           cargo install cargo-ndk --version 3.5.4 --locked
           cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid" --locked
 
-      - name: Clone vcpkg
+      - name: Setup vcpkg
         run: |
           git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
-          $VCPKG_ROOT/bootstrap-vcpkg.sh
+          cd $VCPKG_ROOT
+          ./bootstrap-vcpkg.sh -disableMetrics
 
-      - name: Fix NDK Path & Build C++
+      - name: Build C++ Dependencies
+        env:
+          ANDROID_NDK: ${{ env.ANDROID_NDK_HOME }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+          VCPKG_FORCE_SYSTEM_BINARIES: "1"
         run: |
           cd flutter
           chmod +x build_android_deps.sh
           
-          # پیدا کردن نشانی واقعی NDK در سرور گیت‌هاب
-          export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk-bundle
-          if [ ! -d "$ANDROID_NDK_HOME" ]; then
-            export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
-          fi
-          export ANDROID_NDK=$ANDROID_NDK_HOME
-          
-          echo "Using NDK at: $ANDROID_NDK_HOME"
-          
-          # اجرای بیلد با تزریق مستقیم متغیرهای پیرامونی
-          # ما مسیر نینجا را مستقیما به اسکریپت می‌دهیم
+          # اطمینان از اینکه CMake مسیر نینجا را می‌شناسد
           export CMAKE_MAKE_PROGRAM=$(which ninja)
           
+          # اجرای بیلد و نمایش لاگ در صورت شکست
           if ! ./build_android_deps.sh armeabi-v7a; then
-            echo "--- ERROR LOGS ---"
+            echo "--- ERROR DETECTED ---"
             find $VCPKG_ROOT/buildtrees -name "*.log" -exec cat {} \;
             exit 1
           fi
           ./build_android_deps.sh arm64-v8a
-          ./build_android_deps.sh x86
-          ./build_android_deps.sh x86_64
 
       - name: Generate Bridge
         run: |
@@ -87,12 +85,9 @@ jobs:
           flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
       - name: Build Rust Backend
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
         run: |
-          # استفاده از نشانی یافته شده برای NDK
-          export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk-bundle
-          if [ ! -d "$ANDROID_NDK_HOME" ]; then
-            export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
-          fi
           cargo ndk -t armeabi-v7a -t arm64-v8a build --release --features flutter
 
       - name: Build APK
