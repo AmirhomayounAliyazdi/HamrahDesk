@@ -1,202 +1,110 @@
-name: Build the HamrahDesk for Windows flutter version
+name: Build HamrahDesk Android
 
 on:
-  workflow_call:
-    inputs:
-      upload-artifact:
-        type: boolean
-        default: true
-      upload-tag:
-        type: string
-        default: "nightly"
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
 
 env:
-  SCITER_RUST_VERSION: "stable" # آپدیت به نسخه استیبل
-  RUST_VERSION: "stable" # آپدیت به نسخه استیبل
-  CARGO_NDK_VERSION: "3.1.2"
-  SCITER_ARMV7_CMAKE_VERSION: "3.29.7"
-  SCITER_NASM_DEBVERSION: "2.14-1"
-  LLVM_VERSION: "15.0.6"
   FLUTTER_VERSION: "3.19.6"
-  ANDROID_FLUTTER_VERSION: "3.13.9"
-  FLUTTER_ELINUX_VERSION: "3.16.9"
-  TAG_NAME: "${{ inputs.upload-tag }}"
-  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-  VCPKG_COMMIT_ID: "1de2026f28ead93ff1773e6e680387643e914ea1"
-  VERSION: "1.3.1"
-  NDK_VERSION: "r27"
-  ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
-  MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
-  RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"
-  RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
-  API_SERVER: "${{ secrets.API_SERVER }}"
-  UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
-  SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}"
+  RUST_VERSION: "stable" 
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  NDK_VERSION: "25.2.9519653"
+  
+  # تعیین هر دو متغیر برای دور زدن گرهِ درونِ اسکریپت
+  ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
+  ANDROID_NDK: /usr/local/lib/android/sdk/ndk/25.2.9519653
+  
+  # نشانی روت VCPKG
+  VCPKG_ROOT: /home/runner/vcpkg
+  
+  RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
+  RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
 
 jobs:
-  build-RustDeskTempTopMostWindow:
-    uses: ./.github/workflows/third-party-RustDeskTempTopMostWindow.yml
-    with:
-      upload-artifact: ${{ inputs.upload-artifact }}
-      target: windows-2022
-      configuration: Release
-      platform: x64
-      target_version: Windows10
-    strategy:
-      fail-fast: false
-
-  build-for-windows-flutter:
-    name: Build HamrahDesk Windows flutter version
-    needs: [build-RustDeskTempTopMostWindow]
-    runs-on: windows-2022
-    strategy:
-      fail-fast: false
+  build-android:
+    runs-on: ubuntu-22.04
+    
     steps:
-      - name: Export GitHub Actions cache environment variables
-        uses: actions/github-script@v6
-        with:
-          script: |
-            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-
       - name: Checkout source code
         uses: actions/checkout@v4
 
       - name: Remove hardcoded rust-toolchain files
-        run: |
-          if (Test-Path rust-toolchain) { Remove-Item rust-toolchain }
-          if (Test-Path rust-toolchain.toml) { Remove-Item rust-toolchain.toml }
-        shell: pwsh
+        run: rm -f rust-toolchain rust-toolchain.toml
 
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v1
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
-          version: ${{ env.LLVM_VERSION }}
+          distribution: 'zulu'
+          java-version: '17'
 
-      - name: Install flutter
-        uses: subosito/flutter-action@v2.12.0
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          channel: "stable"
           flutter-version: ${{ env.FLUTTER_VERSION }}
-          cache: true
+          channel: 'stable'
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@v1
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ env.SCITER_RUST_VERSION }}
-          targets: x86_64-pc-windows-msvc
-          components: "rustfmt"
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
 
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@main
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-ndk via binstall
+        run: cargo binstall cargo-ndk --version 3.5.4 -y
+
+      - name: Install flutter_rust_bridge_codegen via binstall
+        run: cargo binstall flutter_rust_bridge_codegen --version 1.80.1 -y
+
+      - name: Generate Rust Bridge
+        run: |
+          cd flutter
+          flutter pub get
+          flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config nasm yasm meson python3 python3-pip
+
+      - name: Cache vcpkg Binary Archives
+        uses: actions/cache@v4
         with:
-          prefix-key: windows-2022
+          path: /home/runner/.cache/vcpkg/archives
+          key: vcpkg-android-cache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            vcpkg-android-cache-${{ runner.os }}-
 
-      - name: Install flutter rust bridge deps
+      - name: Clone and Setup vcpkg
         run: |
-            git config --global core.longpaths true
-            cargo binstall flutter_rust_bridge_codegen --version 1.80.1 -y
-            Push-Location flutter ; flutter pub get ; Pop-Location
-            # حذف مسیر لینوکسیِ ~/.cargo/bin برای رفع خطای پاورشل ویندوز
-            flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk
+          git clone https://github.com/microsoft/vcpkg.git /home/runner/vcpkg
+          cd /home/runner/vcpkg
+          # پاک شدن دستورِ قفل روی نگارش کهنه برای دریافت تازه‌ترین راه‌اندازها
+          ./bootstrap-vcpkg.sh -disableMetrics
 
-      - name: Setup vcpkg with Github Actions binary cache
-        uses: lukka/run-vcpkg@v11
+      - name: Compile C++ Dependencies for Android
+        run: |
+          cd flutter
+          chmod +x build_android_deps.sh
+          ./build_android_deps.sh armeabi-v7a
+          ./build_android_deps.sh arm64-v8a
+          ./build_android_deps.sh x86
+          ./build_android_deps.sh x86_64
+
+      - name: Build Rust Backend
+        run: |
+          cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o flutter/android/app/src/main/jniLibs build --release --features flutter
+
+      - name: Build Flutter Android APK
+        run: |
+          cd flutter
+          flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          vcpkgDirectory: C:\vcpkg
-          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
-          doNotCache: false
-
-      - name: Install vcpkg dependencies
-        env:
-          VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
-        run: |
-          if ! $VCPKG_ROOT/vcpkg \
-            install \
-            --triplet x64-windows-static \
-            --x-install-root="$VCPKG_ROOT/installed"; then
-            find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
-              echo "$_1:"
-              echo "======"
-              cat "$_1"
-              echo "======"
-              echo ""
-            done
-            exit 1
-          fi
-        shell: bash
-
-      - name: Build HamrahDesk
-        run: |
-          Invoke-WebRequest -Uri https://github.com/rustdesk-org/rdev/releases/download/usbmmidd_v2/usbmmidd_v2.zip -OutFile usbmmidd_v2.zip
-          Expand-Archive usbmmidd_v2.zip -DestinationPath .
-          python3 .\build.py --portable --hwcodec --flutter --vram --skip-portable-pack
-          Remove-Item -Path usbmmidd_v2\Win32 -Recurse
-          Remove-Item -Path "usbmmidd_v2\deviceinstaller64.exe", "usbmmidd_v2\deviceinstaller.exe", "usbmmidd_v2\usbmmidd.bat"
-          mv ./flutter/build/windows/x64/runner/Release ./HamrahDesk
-          mv -Force .\usbmmidd_v2 ./HamrahDesk
-
-      - name: find Runner.res
-        continue-on-error: true
-        shell: bash
-        run: |
-          runner_res=$(find . -name "Runner.res");
-          if [ "$runner_res" == "" ]; then
-            echo "Runner.res: not found";
-          else
-            echo "Runner.res: $runner_res";
-            cp $runner_res ./libs/portable/Runner.res;
-            echo "list ./libs/portable/Runner.res";
-            ls -l ./libs/portable/Runner.res;
-          fi
-
-      - name: Download RustDeskTempTopMostWindow artifacts
-        uses: actions/download-artifact@master
-        if: ${{ inputs.upload-artifact }}
-        with:
-          name: topmostwindow-artifacts
-          path: "./HamrahDesk"
-
-      - name: Upload unsigned
-        if: env.UPLOAD_ARTIFACT == 'true'
-        uses: actions/upload-artifact@master
-        with:
-          name: HamrahDesk-unsigned-windows-x86_64
-          path: HamrahDesk
-
-      - name: Sign HamrahDesk files
-        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != ''
-        shell: bash
-        run: |
-          pip3 install requests argparse
-          BASE_URL=${{ secrets.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./HamrahDesk/
-
-      - name: Build self-extracted executable
-        shell: bash
-        if: env.UPLOAD_ARTIFACT == 'true'
-        run: |
-          sed -i '/dpiAware/d' res/manifest.xml
-          pushd ./libs/portable
-          pip3 install -r requirements.txt
-          python3 ./generate.py -f ../../HamrahDesk/ -o . -e ../../HamrahDesk/HamrahDesk.exe
-          popd
-          mkdir -p ./SignOutput
-          mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/HamrahDesk-${{ env.VERSION }}-x86_64.exe
-
-
-      - name: Sign HamrahDesk self-extracted file
-        if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != ''
-        shell: bash
-        run: |
-          BASE_URL=${{ secrets.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./SignOutput
-
-      - name: Publish Release
-        uses: softprops/action-gh-release@v1
-        if: env.UPLOAD_ARTIFACT == 'true'
-        with:
-          prerelease: true
-          tag_name: ${{ env.TAG_NAME }}
-          files: |
-            ./SignOutput/HamrahDesk-*.exe
+          name: HamrahDesk-Android-APK
+          path: flutter/build/app/outputs/flutter-apk/app-release.apk
