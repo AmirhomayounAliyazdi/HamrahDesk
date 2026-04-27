@@ -11,7 +11,6 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   NDK_VERSION: "25.2.9519653"
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
-  ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/25.2.9519653
   VCPKG_ROOT: /home/runner/vcpkg
 
 jobs:
@@ -21,12 +20,6 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
-
-      - name: Clean environment
-        run: |
-          rm -f rust-toolchain rust-toolchain.toml
-          # پاک کردن هرگونه تنظیمات قبلی vcpkg برای شروع تمیز
-          rm -rf /home/runner/vcpkg
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -46,9 +39,11 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
 
-      - name: Install Compilers via Binstall
+      - name: Install cargo-binstall
+        uses: taiki-e/install-action@cargo-binstall
+
+      - name: Install Build Tools
         run: |
-          curl -L https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tar.gz | tar -xvzf - -C ~/.cargo/bin
           cargo binstall cargo-ndk --version 3.5.4 -y
           cargo binstall flutter_rust_bridge_codegen --version 1.80.1 -y
 
@@ -61,25 +56,24 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config nasm yasm meson python3
+          sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config nasm yasm meson
 
-      - name: Clone and Setup vcpkg (Fixed Version)
+      - name: Clone and Setup vcpkg
         run: |
           git clone https://github.com/microsoft/vcpkg.git /home/runner/vcpkg
           cd /home/runner/vcpkg
-          # این نسخه هماهنگی کاملی با NDK و CMake 28 دارد
-          git checkout 363930bccfdb379373981881699f574d7549079a
+          # استفاده از نسخه ای که با NDK 25 کاملا تست شده است
+          git checkout 1de2026f28ead93ff1773e6e680387643e914ea1
           ./bootstrap-vcpkg.sh -disableMetrics
 
-      - name: Compile C++ Dependencies
+      - name: Build C++ Dependencies
         env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+          ANDROID_NDK: ${{ env.ANDROID_NDK_HOME }}
           VCPKG_FORCE_SYSTEM_BINARIES: 1
         run: |
           cd flutter
           chmod +x build_android_deps.sh
-          # اجرای مستقیم برای تک تک معماری‌ها با تزریق دستی مسیر NDK
-          export ANDROID_NDK=$ANDROID_NDK_HOME
+          # اجرای دستی برای اطمینان از مقداردهی درست متغیرها
           ./build_android_deps.sh armeabi-v7a
           ./build_android_deps.sh arm64-v8a
           ./build_android_deps.sh x86
