@@ -11,14 +11,15 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   NDK_VERSION: "25.2.9519653"
   
-  # دادن آدرس دقیق NDK برای عبور از گره‌های اسکریپت
+  # تعیین مسیرهای NDK
   ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
   ANDROID_NDK: /usr/local/lib/android/sdk/ndk/25.2.9519653
   
   VCPKG_ROOT: /home/runner/vcpkg
   
-  # نکته حیاتی: وادار کردن VCPKG به نگه داشتن مسیر NDK برای کامپایلر
-  VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME;ANDROID_NDK;PATH"
+  # راه حل طلایی: اجبار vcpkg به استفاده از ابزارهای سیستم و نادیده نگرفتن مسیرها
+  VCPKG_FORCE_SYSTEM_BINARIES: "1"
+  VCPKG_KEEP_ENV_VARS: "ANDROID_NDK_HOME;ANDROID_NDK;PATH;VCPKG_ROOT;VCPKG_FORCE_SYSTEM_BINARIES"
   
   RENDEZVOUS_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
   RS_PUB_KEY: ${{ secrets.RS_PUB_KEY }}
@@ -31,8 +32,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # پاک کردن فایل‌های مخفی که نسخه راست را به گذشته برمی‌گردانند
-      - name: Remove hardcoded rust-toolchain files
+      - name: Remove hardcoded rust-toolchain
         run: rm -f rust-toolchain rust-toolchain.toml
 
       - name: Setup Java
@@ -53,15 +53,13 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
 
-      # استفاده از binstall برای نصب بی‌درنگ و گذر از خطای edition2024
-      - name: Install cargo-binstall
+      - name: Install Tools via Cargo
         uses: cargo-bins/cargo-binstall@main
 
-      - name: Install cargo-ndk via binstall
-        run: cargo binstall cargo-ndk --version 3.5.4 -y
-
-      - name: Install flutter_rust_bridge_codegen via binstall
-        run: cargo binstall flutter_rust_bridge_codegen --version 1.80.1 -y
+      - name: Binstall Dependencies
+        run: |
+          cargo binstall cargo-ndk --version 3.5.4 -y
+          cargo binstall flutter_rust_bridge_codegen --version 1.80.1 -y
 
       - name: Generate Rust Bridge
         run: |
@@ -74,26 +72,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config nasm yasm meson python3 python3-pip
 
-      - name: Cache vcpkg Binary Archives
-        uses: actions/cache@v4
-        with:
-          path: /home/runner/.cache/vcpkg/archives
-          key: vcpkg-android-cache-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            vcpkg-android-cache-${{ runner.os }}-
-
       - name: Clone and Setup vcpkg
         run: |
           git clone https://github.com/microsoft/vcpkg.git /home/runner/vcpkg
           cd /home/runner/vcpkg
-          # رفتن به کامیتی که با کدهای C++ همخوانی صددرصد دارد
-          git checkout 1de2026f28ead93ff1773e6e680387643e914ea1
+          # استفاده از یک نسخه پایدارتر که با CMake جدید سازگار است
+          git checkout 2024.04.26
           ./bootstrap-vcpkg.sh -disableMetrics
 
       - name: Compile C++ Dependencies for Android
         run: |
           cd flutter
           chmod +x build_android_deps.sh
+          # اجرای اسکریپت با تزریق مستقیم مسیر NDK برای اطمینان صددرصدی
+          export ANDROID_NDK_HOME=$ANDROID_NDK
           ./build_android_deps.sh armeabi-v7a
           ./build_android_deps.sh arm64-v8a
           ./build_android_deps.sh x86
