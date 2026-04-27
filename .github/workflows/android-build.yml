@@ -8,9 +8,9 @@ on:
 env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "stable" 
-  NDK_VERSION: "25.2.9519653"
-  ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
+  # وادار کردن سیستم به استفاده از گره‌های پایدار
   VCPKG_ROOT: /home/runner/vcpkg
+  VCPKG_FORCE_SYSTEM_BINARIES: "1"
 
 jobs:
   build-android:
@@ -20,7 +20,7 @@ jobs:
       - name: Checkout HamrahDesk
         uses: actions/checkout@v4
 
-      - name: Clean environment
+      - name: Clean Start
         run: |
           rm -f rust-toolchain rust-toolchain.toml
           sudo rm -rf /home/runner/vcpkg
@@ -36,31 +36,44 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi
 
-      - name: Install Build Tools
+      - name: Install System Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake nasm yasm meson
+          # اطمینان از اینکه نینجا در همه جا در دسترس است
+          sudo ln -sf /usr/bin/ninja /usr/bin/make
+
+      - name: Setup Tools via Cargo
         run: |
           cargo install cargo-ndk --version 3.5.4 --locked
           cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid" --locked
-          sudo apt-get update
-          sudo apt-get install -y ninja-build cmake nasm yasm meson
 
-      - name: Clone vcpkg (Full History to fix Git 128)
+      - name: Clone vcpkg
         run: |
           git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
           $VCPKG_ROOT/bootstrap-vcpkg.sh
 
-      - name: Build C++ Dependencies (With Full Error Logging)
-        env:
-          VCPKG_FORCE_SYSTEM_BINARIES: "1"
-          ANDROID_NDK: ${{ env.ANDROID_NDK_HOME }}
+      - name: Fix NDK Path & Build C++
         run: |
           cd flutter
           chmod +x build_android_deps.sh
-          # تلاش برای بیلد و در صورت شکست، چاپ تمام لاگ‌ها
+          
+          # پیدا کردن نشانی واقعی NDK در سرور گیت‌هاب
+          export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk-bundle
+          if [ ! -d "$ANDROID_NDK_HOME" ]; then
+            export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
+          fi
+          export ANDROID_NDK=$ANDROID_NDK_HOME
+          
+          echo "Using NDK at: $ANDROID_NDK_HOME"
+          
+          # اجرای بیلد با تزریق مستقیم متغیرهای پیرامونی
+          # ما مسیر نینجا را مستقیما به اسکریپت می‌دهیم
+          export CMAKE_MAKE_PROGRAM=$(which ninja)
+          
           if ! ./build_android_deps.sh armeabi-v7a; then
-            echo "--------------------------------------------------------"
-            echo "!!! BUILD FAILED - PRINTING FULL ERROR LOGS BELOW !!!"
-            echo "--------------------------------------------------------"
-            find /home/runner/vcpkg/buildtrees -name "*.log" -exec echo "FILE: {}" \; -exec cat {} \;
+            echo "--- ERROR LOGS ---"
+            find $VCPKG_ROOT/buildtrees -name "*.log" -exec cat {} \;
             exit 1
           fi
           ./build_android_deps.sh arm64-v8a
@@ -73,14 +86,22 @@ jobs:
           flutter pub get
           flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
-      - name: Build Rust & APK
+      - name: Build Rust Backend
         run: |
-          cargo ndk -t armeabi-v7a -t arm64-v8a -o flutter/android/app/src/main/jniLibs build --release --features flutter
+          # استفاده از نشانی یافته شده برای NDK
+          export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk-bundle
+          if [ ! -d "$ANDROID_NDK_HOME" ]; then
+            export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
+          fi
+          cargo ndk -t armeabi-v7a -t arm64-v8a build --release --features flutter
+
+      - name: Build APK
+        run: |
           cd flutter
           flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HamrahDesk-APK
+          name: HamrahDesk-Android
           path: flutter/build/app/outputs/flutter-apk/app-release.apk
