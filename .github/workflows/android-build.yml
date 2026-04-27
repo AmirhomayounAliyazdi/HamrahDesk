@@ -21,6 +21,13 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: Clean and Setup Env
+        run: |
+          rm -f rust-toolchain rust-toolchain.toml
+          # پاک کردن هرگونه اثر از vcpkg قبلی برای جلوگیری از تداخل ابزارها
+          sudo rm -rf /home/runner/vcpkg
+          sudo rm -rf /home/runner/.cache/vcpkg
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -39,45 +46,46 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
 
-      - name: Install cargo-binstall
+      - name: Install Build Tools
         uses: taiki-e/install-action@cargo-binstall
 
-      - name: Install Build Tools
+      - name: Install Cargo Dependencies
         run: |
           cargo binstall cargo-ndk --version 3.5.4 -y
           cargo binstall flutter_rust_bridge_codegen --version 1.80.1 -y
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config nasm yasm meson python3
+
+      - name: Clone and Bootstrap vcpkg (Latest Stable)
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
+          $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics
+
+      - name: Build C++ Dependencies
+        env:
+          # اجبار به استفاده از ابزارهای سیستم برای رفع باگ CMake vcpkg
+          VCPKG_FORCE_SYSTEM_BINARIES: "1"
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+          ANDROID_NDK: ${{ env.ANDROID_NDK_HOME }}
+        run: |
+          cd flutter
+          # ساخت دستی دایرکتوری برای جلوگیری از ارور vcpkg
+          mkdir -p $VCPKG_ROOT/installed
+          chmod +x build_android_deps.sh
+          # تزریق مستقیم مسیرها به اسکریپت
+          ./build_android_deps.sh armeabi-v7a
+          ./build_android_deps.sh arm64-v8a
+          ./build_android_deps.sh x86
+          ./build_android_deps.sh x86_64
 
       - name: Generate Rust Bridge
         run: |
           cd flutter
           flutter pub get
           flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
-
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-multilib g++-multilib ninja-build cmake pkg-config nasm yasm meson
-
-      - name: Clone and Setup vcpkg
-        run: |
-          git clone https://github.com/microsoft/vcpkg.git /home/runner/vcpkg
-          cd /home/runner/vcpkg
-          # استفاده از نسخه ای که با NDK 25 کاملا تست شده است
-          git checkout 1de2026f28ead93ff1773e6e680387643e914ea1
-          ./bootstrap-vcpkg.sh -disableMetrics
-
-      - name: Build C++ Dependencies
-        env:
-          ANDROID_NDK: ${{ env.ANDROID_NDK_HOME }}
-          VCPKG_FORCE_SYSTEM_BINARIES: 1
-        run: |
-          cd flutter
-          chmod +x build_android_deps.sh
-          # اجرای دستی برای اطمینان از مقداردهی درست متغیرها
-          ./build_android_deps.sh armeabi-v7a
-          ./build_android_deps.sh arm64-v8a
-          ./build_android_deps.sh x86
-          ./build_android_deps.sh x86_64
 
       - name: Build Rust Backend
         run: |
