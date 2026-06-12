@@ -69,27 +69,32 @@ jobs:
           # پیدا کردن آدرس واقعی NDK روی سرور گیت‌هاب به صورت خودکار
           export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk-bundle
           if [ ! -d "$ANDROID_NDK_HOME" ]; then
-             # اگر مسیر باندل نبود، آخرین نسخه نصب شده در پوشه ndk را بردار
-             export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
+              export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
           fi
           export ANDROID_NDK=$ANDROID_NDK_HOME
           echo "NDK Found at: $ANDROID_NDK"
           
-          # تزریق مستقیم مسیر Ninja برای رفع ارور CMAKE_MAKE_PROGRAM is not set
           export CMAKE_MAKE_PROGRAM=$(which ninja)
           
-          # تلاش برای بیلد معماری اصلی
-          if ! ./build_android_deps.sh armeabi-v7a; then
+          echo "Building armeabi-v7a... (Normal logs are hidden)"
+          # بیلد در سکوت انجام می‌شود. اگر شکست خورد، وارد شرط می‌شود:
+          if ! ./build_android_deps.sh armeabi-v7a > /dev/null; then
             echo "--------------------------------------------------------"
-            echo "!!! CRITICAL FAILURE - PRINTING ALL LOGS !!!"
+            echo "!!! BUILD FAILED - PRINTING ERRORS ONLY !!!"
             echo "--------------------------------------------------------"
-            # چاپ لاگ‌های دقیق در صورت شکست [cite: 2, 3]
-            find $VCPKG_ROOT/buildtrees -name "*.log" -exec echo "--- LOG FILE: {} ---" \; -exec cat {} \;
+            # فقط فایل‌های مخصوص ارور خوانده و چاپ می‌شوند
+            find $VCPKG_ROOT/buildtrees -name "*-err.log" -exec echo "--- ERROR LOG: {} ---" \; -exec cat {} \;
             exit 1
           fi
           
-          # بیلد سایر معماری‌ها
-          ./build_android_deps.sh arm64-v8a
+          echo "Building arm64-v8a... (Normal logs are hidden)"
+          if ! ./build_android_deps.sh arm64-v8a > /dev/null; then
+            echo "--------------------------------------------------------"
+            echo "!!! BUILD FAILED - PRINTING ERRORS ONLY !!!"
+            echo "--------------------------------------------------------"
+            find $VCPKG_ROOT/buildtrees -name "*-err.log" -exec echo "--- ERROR LOG: {} ---" \; -exec cat {} \;
+            exit 1
+          fi
 
       - name: Generate Rust Bridge
         run: |
