@@ -91,15 +91,15 @@ jobs:
 
       - name: Install flutter rust bridge deps
         run: |
-            git config --global core.longpaths true
-            cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid"
-            Push-Location flutter ; flutter pub get ; Pop-Location
-            flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk
+          git config --global core.longpaths true
+          cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid"
+          Push-Location flutter ; flutter pub get ; Pop-Location
+          flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk
 
       - name: Setup vcpkg with Github Actions binary cache
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgDirectory: C:\vcpkg
+          vcpkgDirectory: 'C:\vcpkg'
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
@@ -107,14 +107,11 @@ jobs:
         env:
           VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
         run: |
-          if ! $VCPKG_ROOT/vcpkg \
-            install \
-            --triplet x64-windows-static \
-            --x-install-root="$VCPKG_ROOT/installed"; then
+          if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"; then
             echo "--------------------------------------------------------"
             echo "!!! VCPKG BUILD FAILED - PRINTING ERRORS ONLY !!!"
             echo "--------------------------------------------------------"
-            find "$VCPKG_ROOT/buildtrees" -name "*-err.log" -exec echo -e "\n--- ERROR LOG: {} ---\n" \; -exec cat {} \;
+            find "$VCPKG_ROOT/buildtrees" -name "*-err.log" -exec echo "--- ERROR LOG: {} ---" \; -exec cat {} \;
             exit 1
           fi
         shell: bash
