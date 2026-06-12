@@ -59,7 +59,7 @@ jobs:
           git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
           $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics
 
-     - name: Build C++ Dependencies (With Auto NDK & Ninja)
+      - name: Build C++ Dependencies (With Auto NDK & Ninja)
         env:
           VCPKG_FORCE_SYSTEM_BINARIES: "1"
         run: |
@@ -82,10 +82,12 @@ jobs:
           export CMAKE_MAKE_PROGRAM=$(which ninja)
           
           echo "Building armeabi-v7a... (Normal logs are hidden)"
+          # بیلد در سکوت انجام می‌شود. اگر شکست خورد، وارد شرط می‌شود:
           if ! ./build_android_deps.sh armeabi-v7a > /dev/null; then
             echo "--------------------------------------------------------"
             echo "!!! BUILD FAILED - PRINTING ERRORS ONLY !!!"
             echo "--------------------------------------------------------"
+            # فقط فایل‌های مخصوص ارور خوانده و چاپ می‌شوند
             find $VCPKG_ROOT/buildtrees -name "*-err.log" -exec echo "--- ERROR LOG: {} ---" \; -exec cat {} \;
             exit 1
           fi
