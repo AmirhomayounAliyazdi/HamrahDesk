@@ -71,7 +71,6 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId "com.carriez.flutter_hbb"
         minSdkVersion 21
         targetSdkVersion 33
@@ -88,18 +87,13 @@ android {
       }
     }
 
-buildTypes {
-    release {
-        // این خط را پیدا کنید و کامنت/حذف کنید:
-        // signingConfig signingConfigs.release
-
-        // این خط را جایگزین آن کنید:
-        signingConfig signingConfigs.debug
-
-        minifyEnabled true
-        ...
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
     }
-}
 }
 
 flutter {
@@ -112,4 +106,3 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib") { version { strictly("$kotlin_version") } }
     implementation 'com.caverock:androidsvg-aar:1.4'
 }
-
