@@ -74,10 +74,14 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
+      - name: Clean Environment (Remove pinned Rust version)
+        run: |
+          Remove-Item -Force rust-toolchain, rust-toolchain.toml -ErrorAction SilentlyContinue
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: ${{ env.SCITER_RUST_VERSION }}
+          toolchain: stable
           targets: x86_64-pc-windows-msvc
           components: "rustfmt"
 
@@ -174,7 +178,6 @@ jobs:
           popd
           mkdir -p ./SignOutput
           mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/HamrahDesk-${{ env.VERSION }}-x86_64.exe
-
 
       - name: Sign HamrahDesk self-extracted file
         if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != ''
