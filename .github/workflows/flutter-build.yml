@@ -103,7 +103,7 @@ jobs:
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
-      - name: Install vcpkg dependencies
+- name: Install vcpkg dependencies
         env:
           VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
         run: |
@@ -111,13 +111,10 @@ jobs:
             install \
             --triplet x64-windows-static \
             --x-install-root="$VCPKG_ROOT/installed"; then
-            find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
-              echo "$_1:"
-              echo "======"
-              cat "$_1"
-              echo "======"
-              echo ""
-            done
+            echo "--------------------------------------------------------"
+            echo "!!! VCPKG BUILD FAILED - PRINTING ERRORS ONLY !!!"
+            echo "--------------------------------------------------------"
+            find "$VCPKG_ROOT/buildtrees" -name "*-err.log" -exec echo -e "\n--- ERROR LOG: {} ---\n" \; -exec cat {} \;
             exit 1
           fi
         shell: bash
