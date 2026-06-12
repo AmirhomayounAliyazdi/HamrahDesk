@@ -102,7 +102,8 @@ jobs:
       - name: Build Rust Backend
         run: |
           export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
-          cargo ndk -t armeabi-v7a -t arm64-v8a build --release --features flutter
+          # با اضافه کردن پارامتر -o فایل‌های خروجی مستقیماً وارد سورس اندرویدِ فلاتر می‌شوند
+          cargo ndk -t armeabi-v7a -t arm64-v8a -o ./flutter/android/app/src/main/jniLibs build --release --features flutter
 
       - name: Build APK
         run: |
