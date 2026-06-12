@@ -45,8 +45,8 @@ jobs:
       - name: Install System Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build cmake nasm yasm meson pkg-config
-          # خط جایگزینی make با ninja به دلیل ایجاد اختلال در FFmpeg حذف شد
+          # اضافه شدن gcc-multilib و g++-multilib برای رفع خطای هدرهای ۳۲ بیتی
+          sudo apt-get install -y ninja-build cmake nasm yasm meson pkg-config gcc-multilib g++-multilib
 
       - name: Install Rust Tools
         run: |
