@@ -4,6 +4,8 @@ set -e
 
 export PATH="$PATH:/usr/bin"
 
+unset MAKE
+
 command -v cygpath >/dev/null && have_cygpath=1
 
 cygpath() {
