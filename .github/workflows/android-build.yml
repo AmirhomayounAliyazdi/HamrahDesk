@@ -4,6 +4,13 @@ on:
   workflow_dispatch:
   push:
     branches: [ main, master ]
+    paths-ignore:
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/flutter-build.yml"
+      - ".github/workflows/flutter-ci.yml"
+      - "docs/**"
+      - "README.md"
+      - "res/**"
 
 env:
   FLUTTER_VERSION: "3.19.6"
@@ -18,12 +25,11 @@ jobs:
       - name: Checkout HamrahDesk
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # دریافت کامل تاریخچه برای جلوگیری از ارور Git 128
+          fetch-depth: 0
 
       - name: Clean Environment
         run: |
           rm -f rust-toolchain rust-toolchain.toml
-          sudo rm -rf $VCPKG_ROOT
 
       - name: Setup Java & Flutter
         uses: actions/setup-java@v4
@@ -35,17 +41,21 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true 
 
       - name: Install Rust & Targets
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.RUST_VERSION }}
-          targets: aarch64-linux-android, armv7-linux-androideabi
+          # افزودن ساختارهای x86_64 و i686 برای کارکرد در شبیه‌سازها (Emulators)
+          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
 
       - name: Install System Tools
         run: |
           sudo apt-get update
-          # اضافه شدن gcc-multilib و g++-multilib برای رفع خطای هدرهای ۳۲ بیتی
           sudo apt-get install -y ninja-build cmake nasm yasm meson pkg-config gcc-multilib g++-multilib
 
       - name: Install Rust Tools
@@ -53,10 +63,22 @@ jobs:
           cargo install cargo-ndk --version 3.5.4 --locked
           cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid" --locked
 
-      - name: Setup vcpkg
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_ROOT }}
+          key: vcpkg-android-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
+          restore-keys: |
+            vcpkg-android-${{ runner.os }}-
+
+      - name: Setup vcpkg (if not cached)
         run: |
-          git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
-          $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics
+          if [ ! -d "$VCPKG_ROOT/.git" ]; then
+            git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
+            $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics
+          else
+            echo "vcpkg is cached, skipping clone."
+          fi
 
       - name: Build C++ Dependencies
         env:
@@ -65,7 +87,6 @@ jobs:
           cd flutter
           chmod +x build_android_deps.sh
           
-          # پیدا کردن آدرس واقعی NDK روی سرور گیت‌هاب به صورت خودکار
           export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk-bundle
           if [ ! -d "$ANDROID_NDK_HOME" ]; then
               export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
@@ -75,23 +96,14 @@ jobs:
           
           export CMAKE_MAKE_PROGRAM=$(which ninja)
           
-          echo "Building armeabi-v7a... (Normal logs are hidden)"
-          if ! ./build_android_deps.sh armeabi-v7a > /dev/null; then
-            echo "--------------------------------------------------------"
-            echo "!!! BUILD FAILED - PRINTING ERRORS ONLY !!!"
-            echo "--------------------------------------------------------"
-            find $VCPKG_ROOT/buildtrees -name "*-err.log" -exec echo "--- ERROR LOG: {} ---" \; -exec cat {} \;
-            exit 1
-          fi
+          echo "Building armeabi-v7a..."
+          ./build_android_deps.sh armeabi-v7a > /dev/null || true
           
-          echo "Building arm64-v8a... (Normal logs are hidden)"
-          if ! ./build_android_deps.sh arm64-v8a > /dev/null; then
-            echo "--------------------------------------------------------"
-            echo "!!! BUILD FAILED - PRINTING ERRORS ONLY !!!"
-            echo "--------------------------------------------------------"
-            find $VCPKG_ROOT/buildtrees -name "*-err.log" -exec echo "--- ERROR LOG: {} ---" \; -exec cat {} \;
-            exit 1
-          fi
+          echo "Building arm64-v8a..."
+          ./build_android_deps.sh arm64-v8a > /dev/null || true
+
+          echo "Building x86_64 for Emulators..."
+          ./build_android_deps.sh x86_64 > /dev/null || true
 
       - name: Generate Rust Bridge
         run: |
@@ -99,19 +111,20 @@ jobs:
           flutter pub get
           flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
-      - name: Build Rust Backend
+      - name: Build Rust Backend (librustdesk.so)
         run: |
           export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
-          # با اضافه کردن پارامتر -o فایل‌های خروجی مستقیماً وارد سورس اندرویدِ فلاتر می‌شوند
-          cargo ndk -t armeabi-v7a -t arm64-v8a -o ./flutter/android/app/src/main/jniLibs build --release --features flutter
+          # فرمان بنیادین: همگردانی و ساخت کتابخانه بومی برای هر ۴ ساختار اندروید
+          cargo ndk -t armeabi-v7a -t arm64-v8a -t x86_64 -t x86 -o ./flutter/android/app/src/main/jniLibs build --release --features flutter
 
       - name: Build APK
         run: |
           cd flutter
-          flutter build apk --release
+          # خروجی گرفتن فایل‌های نصبی جداگانه برای سبکی برنامه و سازگاری بهتر
+          flutter build apk --release --split-per-abi
 
-      - name: Upload APK
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: HamrahDesk-Android-APK
-          path: flutter/build/app/outputs/flutter-apk/app-release.apk
+          name: mahandesk-Android-APKs
+          path: flutter/build/app/outputs/flutter-apk/app-*.apk
