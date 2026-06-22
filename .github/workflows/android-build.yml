@@ -16,8 +16,7 @@ env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "stable" 
   VCPKG_ROOT: /home/runner/vcpkg
-  # شناسه‌ی پایدار برای هماهنگی با دیگر پلتفرم‌ها
-  VCPKG_COMMIT_ID: "ee9010378b871c5ec4a29dd3d606eb862b53982e"
+  VCPKG_COMMIT_ID: "master"
 
 jobs:
   build-android:
@@ -68,7 +67,6 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.VCPKG_ROOT }}
-          # تغییر نام نهانگاه به v2 برای نادیده گرفتن کش خراب پیشین
           key: vcpkg-android-v2-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
           restore-keys: |
             vcpkg-android-v2-${{ runner.os }}-
@@ -130,3 +128,4 @@ jobs:
         with:
           name: mahandesk-Android-APKs
           path: flutter/build/app/outputs/flutter-apk/app-*.apk
+
