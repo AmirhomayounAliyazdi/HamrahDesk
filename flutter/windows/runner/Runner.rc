@@ -89,12 +89,14 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "Hamrah Hesabe Amin Ltd" "\0"
+       
+             VALUE "CompanyName", "Hamrah Hesabe Amin Ltd" "\0"
             VALUE "FileDescription", "mahandesk Remote Desktop" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "mahandesk" "\0"
             VALUE "LegalCopyright", "Copyright © 2024 Hamrah Hesabe Amin Ltd. All rights reserved." "\0"
             VALUE "OriginalFilename", "mahandesk.exe" "\0"
+   
             VALUE "ProductName", "mahandesk" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
