@@ -16,7 +16,8 @@ env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "stable" 
   VCPKG_ROOT: /home/runner/vcpkg
-  VCPKG_COMMIT_ID: "master"
+  # شناسه‌ی دقیقِ هماهنگ با vcpkg.json شما
+  VCPKG_COMMIT_ID: "f7423ee180c4b7f40d43402c2feb3859161ef625"
 
 jobs:
   build-android:
@@ -67,9 +68,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.VCPKG_ROOT }}
-          key: vcpkg-android-v2-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
+          # تغییر نام نهانگاه به v3 برای دور ریختن فایل‌های خراب پیشین
+          key: vcpkg-android-v3-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
           restore-keys: |
-            vcpkg-android-v2-${{ runner.os }}-
+            vcpkg-android-v3-${{ runner.os }}-
 
       - name: Setup vcpkg (if not cached)
         run: |
