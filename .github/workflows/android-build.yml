@@ -16,13 +16,15 @@ env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "stable" 
   VCPKG_ROOT: /home/runner/vcpkg
+  # شناسه‌ی پایدار برای هماهنگی با دیگر پلتفرم‌ها
+  VCPKG_COMMIT_ID: "ee9010378b871c5ec4a29dd3d606eb862b53982e"
 
 jobs:
   build-android:
     runs-on: ubuntu-22.04
     
     steps:
-      - name: Checkout HamrahDesk
+      - name: Checkout mahandesk
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -47,7 +49,6 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.RUST_VERSION }}
-          # افزودن ساختارهای x86_64 و i686 برای کارکرد در شبیه‌سازها (Emulators)
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
 
       - name: Cache Rust
@@ -67,15 +68,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.VCPKG_ROOT }}
-          key: vcpkg-android-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
+          # تغییر نام نهانگاه به v2 برای نادیده گرفتن کش خراب پیشین
+          key: vcpkg-android-v2-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
           restore-keys: |
-            vcpkg-android-${{ runner.os }}-
+            vcpkg-android-v2-${{ runner.os }}-
 
       - name: Setup vcpkg (if not cached)
         run: |
           if [ ! -d "$VCPKG_ROOT/.git" ]; then
             git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
-            $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics
+            cd $VCPKG_ROOT
+            git checkout ${{ env.VCPKG_COMMIT_ID }}
+            ./bootstrap-vcpkg.sh -disableMetrics
           else
             echo "vcpkg is cached, skipping clone."
           fi
@@ -97,13 +101,13 @@ jobs:
           export CMAKE_MAKE_PROGRAM=$(which ninja)
           
           echo "Building armeabi-v7a..."
-          ./build_android_deps.sh armeabi-v7a > /dev/null || true
+          ./build_android_deps.sh armeabi-v7a
           
           echo "Building arm64-v8a..."
-          ./build_android_deps.sh arm64-v8a > /dev/null || true
+          ./build_android_deps.sh arm64-v8a
 
           echo "Building x86_64 for Emulators..."
-          ./build_android_deps.sh x86_64 > /dev/null || true
+          ./build_android_deps.sh x86_64
 
       - name: Generate Rust Bridge
         run: |
@@ -114,13 +118,11 @@ jobs:
       - name: Build Rust Backend (librustdesk.so)
         run: |
           export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
-          # فرمان بنیادین: همگردانی و ساخت کتابخانه بومی برای هر ۴ ساختار اندروید
           cargo ndk -t armeabi-v7a -t arm64-v8a -t x86_64 -t x86 -o ./flutter/android/app/src/main/jniLibs build --release --features flutter
 
       - name: Build APK
         run: |
           cd flutter
-          # خروجی گرفتن فایل‌های نصبی جداگانه برای سبکی برنامه و سازگاری بهتر
           flutter build apk --release --split-per-abi
 
       - name: Upload APKs
