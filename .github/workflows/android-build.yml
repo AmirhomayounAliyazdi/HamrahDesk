@@ -16,7 +16,7 @@ env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "stable" 
   VCPKG_ROOT: /home/runner/vcpkg
-  # شناسه‌ی دقیقِ هماهنگ با vcpkg.json شما
+  # هماهنگ شده با vcpkg.json شما
   VCPKG_COMMIT_ID: "f7423ee180c4b7f40d43402c2feb3859161ef625"
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-22.04
     
     steps:
-      - name: Checkout mahandesk
+      - name: Checkout HamrahDesk
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -68,16 +68,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.VCPKG_ROOT }}
-          # تغییر نام نهانگاه به v3 برای دور ریختن فایل‌های خراب پیشین
-          key: vcpkg-android-v3-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
+          key: vcpkg-android-v4-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
           restore-keys: |
-            vcpkg-android-v3-${{ runner.os }}-
+            vcpkg-android-v4-${{ runner.os }}-
 
       - name: Setup vcpkg (if not cached)
         run: |
           if [ ! -d "$VCPKG_ROOT/.git" ]; then
             git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
             cd $VCPKG_ROOT
+            # این خط بسیار مهم است و نباید جا بیفتد
             git checkout ${{ env.VCPKG_COMMIT_ID }}
             ./bootstrap-vcpkg.sh -disableMetrics
           else
@@ -128,6 +128,6 @@ jobs:
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: mahandesk-Android-APKs
+          name: HamrahDesk-Android-APKs
           path: flutter/build/app/outputs/flutter-apk/app-*.apk
 
