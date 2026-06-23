@@ -16,8 +16,6 @@ env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "stable" 
   VCPKG_ROOT: /home/runner/vcpkg
-  # هماهنگ شده با vcpkg.json شما
-  VCPKG_COMMIT_ID: "f7423ee180c4b7f40d43402c2feb3859161ef625"
 
 jobs:
   build-android:
@@ -32,6 +30,7 @@ jobs:
       - name: Clean Environment
         run: |
           rm -f rust-toolchain rust-toolchain.toml
+          sudo rm -rf $VCPKG_ROOT
 
       - name: Setup Java & Flutter
         uses: actions/setup-java@v4
@@ -43,16 +42,12 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
-          cache: true 
 
       - name: Install Rust & Targets
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
-
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
 
       - name: Install System Tools
         run: |
@@ -64,25 +59,10 @@ jobs:
           cargo install cargo-ndk --version 3.5.4 --locked
           cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid" --locked
 
-      - name: Cache vcpkg
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.VCPKG_ROOT }}
-          key: vcpkg-android-v4-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
-          restore-keys: |
-            vcpkg-android-v4-${{ runner.os }}-
-
-      - name: Setup vcpkg (if not cached)
+      - name: Setup vcpkg
         run: |
-          if [ ! -d "$VCPKG_ROOT/.git" ]; then
-            git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
-            cd $VCPKG_ROOT
-            # این خط بسیار مهم است و نباید جا بیفتد
-            git checkout ${{ env.VCPKG_COMMIT_ID }}
-            ./bootstrap-vcpkg.sh -disableMetrics
-          else
-            echo "vcpkg is cached, skipping clone."
-          fi
+          git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
+          $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics
 
       - name: Build C++ Dependencies
         env:
@@ -108,6 +88,9 @@ jobs:
 
           echo "Building x86_64 for Emulators..."
           ./build_android_deps.sh x86_64
+          
+          echo "Building x86 for Emulators..."
+          ./build_android_deps.sh x86
 
       - name: Generate Rust Bridge
         run: |
@@ -115,7 +98,7 @@ jobs:
           flutter pub get
           flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
-      - name: Build Rust Backend (librustdesk.so)
+      - name: Build Rust Backend
         run: |
           export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
           cargo ndk -t armeabi-v7a -t arm64-v8a -t x86_64 -t x86 -o ./flutter/android/app/src/main/jniLibs build --release --features flutter
@@ -130,4 +113,3 @@ jobs:
         with:
           name: HamrahDesk-Android-APKs
           path: flutter/build/app/outputs/flutter-apk/app-*.apk
-
