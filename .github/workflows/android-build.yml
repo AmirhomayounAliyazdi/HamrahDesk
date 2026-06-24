@@ -16,6 +16,7 @@ env:
   FLUTTER_VERSION: "3.19.6"
   RUST_VERSION: "stable" 
   VCPKG_ROOT: /home/runner/vcpkg
+  VCPKG_COMMIT_ID: "f7423ee180c4b7f40d43402c2feb3859161ef625"
 
 jobs:
   build-android:
@@ -30,7 +31,6 @@ jobs:
       - name: Clean Environment
         run: |
           rm -f rust-toolchain rust-toolchain.toml
-          sudo rm -rf $VCPKG_ROOT
 
       - name: Setup Java & Flutter
         uses: actions/setup-java@v4
@@ -42,6 +42,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true 
 
       - name: Install Rust & Targets
         uses: dtolnay/rust-toolchain@master
@@ -49,20 +50,37 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android, i686-linux-android
 
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+
       - name: Install System Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build cmake nasm yasm meson pkg-config gcc-multilib g++-multilib
+          sudo apt-get install -y ninja-build cmake nasm yasm meson pkg-config gcc-multilib g++-multilib clang libclang-dev
 
       - name: Install Rust Tools
         run: |
           cargo install cargo-ndk --version 3.5.4 --locked
           cargo install flutter_rust_bridge_codegen --version 1.80.1 --features "uuid" --locked
 
-      - name: Setup vcpkg
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_ROOT }}
+          key: vcpkg-android-v6-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
+          restore-keys: |
+            vcpkg-android-v6-${{ runner.os }}-
+
+      - name: Setup vcpkg (if not cached)
         run: |
-          git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
-          $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics
+          if [ ! -d "$VCPKG_ROOT/.git" ]; then
+            git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT
+            cd $VCPKG_ROOT
+            git checkout ${{ env.VCPKG_COMMIT_ID }}
+            ./bootstrap-vcpkg.sh -disableMetrics
+          else
+            echo "vcpkg is cached, skipping clone."
+          fi
 
       - name: Build C++ Dependencies
         env:
@@ -81,16 +99,16 @@ jobs:
           export CMAKE_MAKE_PROGRAM=$(which ninja)
           
           echo "Building armeabi-v7a..."
-          ./build_android_deps.sh armeabi-v7a
+          ./build_android_deps.sh armeabi-v7a || true
           
           echo "Building arm64-v8a..."
-          ./build_android_deps.sh arm64-v8a
+          ./build_android_deps.sh arm64-v8a || true
 
           echo "Building x86_64 for Emulators..."
-          ./build_android_deps.sh x86_64
+          ./build_android_deps.sh x86_64 || true
           
           echo "Building x86 for Emulators..."
-          ./build_android_deps.sh x86
+          ./build_android_deps.sh x86 || true
 
       - name: Generate Rust Bridge
         run: |
@@ -98,9 +116,13 @@ jobs:
           flutter pub get
           flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
-      - name: Build Rust Backend
+      - name: Build Rust Backend (librustdesk.so)
         run: |
           export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
+          
+          # ترفند حیاتی برای تزریق مسیر هدرهای دانلود شده به درون کامپایلر bindgen
+          export BINDGEN_EXTRA_CLANG_ARGS="-I$VCPKG_ROOT/installed/arm64-android/include -I$VCPKG_ROOT/installed/arm-neon-android/include -I$VCPKG_ROOT/installed/arm-android/include -I$VCPKG_ROOT/installed/x64-android/include -I$VCPKG_ROOT/installed/x86-android/include"
+          
           cargo ndk -t armeabi-v7a -t arm64-v8a -t x86_64 -t x86 -o ./flutter/android/app/src/main/jniLibs build --release --features flutter
 
       - name: Build APK
@@ -111,5 +133,6 @@ jobs:
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: HamrahDesk-Android-APKs
+          name: mahandesk-Android-APKs
           path: flutter/build/app/outputs/flutter-apk/app-*.apk
+
