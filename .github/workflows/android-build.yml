@@ -44,6 +44,14 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true 
 
+      # این گام کلیدی است: اجبار به استفاده از NDK نسخه r25c
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r25c
+          local-cache: true
+
       - name: Install Rust & Targets
         uses: dtolnay/rust-toolchain@master
         with:
@@ -67,9 +75,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.VCPKG_ROOT }}
-          key: vcpkg-android-v6-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
+          key: vcpkg-android-v7-${{ runner.os }}-${{ hashFiles('flutter/build_android_deps.sh') }}
           restore-keys: |
-            vcpkg-android-v6-${{ runner.os }}-
+            vcpkg-android-v7-${{ runner.os }}-
 
       - name: Setup vcpkg (if not cached)
         run: |
@@ -85,30 +93,26 @@ jobs:
       - name: Build C++ Dependencies
         env:
           VCPKG_FORCE_SYSTEM_BINARIES: "1"
+          # تنظیم مسیر NDK برای vcpkg از خروجی گام قبلی
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           cd flutter
           chmod +x build_android_deps.sh
-          
-          export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk-bundle
-          if [ ! -d "$ANDROID_NDK_HOME" ]; then
-              export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
-          fi
-          export ANDROID_NDK=$ANDROID_NDK_HOME
-          echo "NDK Found at: $ANDROID_NDK"
-          
           export CMAKE_MAKE_PROGRAM=$(which ninja)
           
+          # حذف || true برای اینکه متوجه هرگونه خطای واقعی شویم
           echo "Building armeabi-v7a..."
-          ./build_android_deps.sh armeabi-v7a || true
+          ./build_android_deps.sh armeabi-v7a
           
           echo "Building arm64-v8a..."
-          ./build_android_deps.sh arm64-v8a || true
+          ./build_android_deps.sh arm64-v8a
 
           echo "Building x86_64 for Emulators..."
-          ./build_android_deps.sh x86_64 || true
+          ./build_android_deps.sh x86_64
           
           echo "Building x86 for Emulators..."
-          ./build_android_deps.sh x86 || true
+          ./build_android_deps.sh x86
 
       - name: Generate Rust Bridge
         run: |
@@ -117,12 +121,11 @@ jobs:
           flutter_rust_bridge_codegen --rust-input ../src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --class-name HamrahDesk
 
       - name: Build Rust Backend (librustdesk.so)
+        env:
+          # دادن مسیر NDK سازگار به Cargo
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
-          export ANDROID_NDK_HOME=$(ls -d $ANDROID_SDK_ROOT/ndk/* | head -1)
-          
-          # ترفند حیاتی برای تزریق مسیر هدرهای دانلود شده به درون کامپایلر bindgen
-          export BINDGEN_EXTRA_CLANG_ARGS="-I$VCPKG_ROOT/installed/arm64-android/include -I$VCPKG_ROOT/installed/arm-neon-android/include -I$VCPKG_ROOT/installed/arm-android/include -I$VCPKG_ROOT/installed/x64-android/include -I$VCPKG_ROOT/installed/x86-android/include"
-          
+          export BINDGEN_EXTRA_CLANG_ARGS="-I$VCPKG_ROOT/installed/arm64-android/include -I$VCPKG_ROOT/installed/arm-neon-android/include -I$VCPKG_ROOT/installed/x64-android/include -I$VCPKG_ROOT/installed/x86-android/include"
           cargo ndk -t armeabi-v7a -t arm64-v8a -t x86_64 -t x86 -o ./flutter/android/app/src/main/jniLibs build --release --features flutter
 
       - name: Build APK
@@ -135,4 +138,3 @@ jobs:
         with:
           name: mahandesk-Android-APKs
           path: flutter/build/app/outputs/flutter-apk/app-*.apk
-
