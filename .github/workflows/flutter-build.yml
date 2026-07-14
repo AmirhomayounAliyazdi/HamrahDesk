@@ -96,6 +96,10 @@ jobs:
           Push-Location flutter ; flutter pub get ; Pop-Location
           flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk
 
+      # --- This step is added to fix the git safe.directory error ---
+      - name: Disable Git safe.directory checks
+        run: git config --global --add safe.directory '*'
+
       - name: Setup vcpkg with Github Actions binary cache
         uses: lukka/run-vcpkg@v11
         with:
