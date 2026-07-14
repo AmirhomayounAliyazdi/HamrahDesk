@@ -25,7 +25,6 @@ env:
   FLUTTER_VERSION: "3.19.6"
   TAG_NAME: "${{ inputs.upload-tag }}"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-  VCPKG_COMMIT_ID: "ee9010378b871c5ec4a29dd3d606eb862b53982e"
   VERSION: "1.3.1"
   UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}"
@@ -97,15 +96,18 @@ jobs:
       - name: Disable Git safe.directory checks
         run: git config --global --add safe.directory '*'
 
-      - name: Clean and Setup vcpkg
+      # --- گام جدید: پاکسازی و کلون کردن کاملاً دستی vcpkg برای دور زدن باگ گیت ---
+      - name: Manually Clone vcpkg Repository
         run: |
           Remove-Item -Path "${{ github.workspace }}/vcpkg" -Recurse -ErrorAction SilentlyContinue
+          git clone --depth=1 https://github.com/microsoft/vcpkg.git "${{ github.workspace }}/vcpkg"
+        shell: bash
 
+      # --- در این استپ پارامتر تعیین کامیت حذف شده و از کلون دستی مرحله قبل استفاده می‌شود ---
       - name: Setup vcpkg with Github Actions binary cache
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
       - name: Install vcpkg dependencies
