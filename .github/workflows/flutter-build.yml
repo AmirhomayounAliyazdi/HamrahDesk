@@ -9,27 +9,24 @@ on:
       upload-tag:
         type: string
         default: "nightly"
+  workflow_dispatch:
+    inputs:
+      upload-artifact:
+        description: 'Upload the build artifacts?'
+        type: boolean
+        default: true
+      upload-tag:
+        description: 'Tag name for the release'
+        type: string
+        default: "nightly"
 
 env:
-  SCITER_RUST_VERSION: "1.75"
-  RUST_VERSION: "1.75"
-  CARGO_NDK_VERSION: "3.1.2"
-  SCITER_ARMV7_CMAKE_VERSION: "3.29.7"
-  SCITER_NASM_DEBVERSION: "2.14-1"
   LLVM_VERSION: "15.0.6"
   FLUTTER_VERSION: "3.19.6"
-  ANDROID_FLUTTER_VERSION: "3.13.9"
-  FLUTTER_ELINUX_VERSION: "3.16.9"
   TAG_NAME: "${{ inputs.upload-tag }}"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   VCPKG_COMMIT_ID: "ee9010378b871c5ec4a29dd3d606eb862b53982e"
   VERSION: "1.3.1"
-  NDK_VERSION: "r27"
-  ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
-  MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
-  RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"
-  RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
-  API_SERVER: "${{ secrets.API_SERVER }}"
   UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}"
 
@@ -74,9 +71,10 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Clean Environment (Remove pinned Rust version)
-        run: |
-          Remove-Item -Force rust-toolchain, rust-toolchain.toml -ErrorAction SilentlyContinue
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
@@ -96,34 +94,26 @@ jobs:
           Push-Location flutter ; flutter pub get ; Pop-Location
           flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk
 
-      # --- بخش اضافه‌شده برای رفع خطای مجوز گیت ---
       - name: Disable Git safe.directory checks
         run: git config --global --add safe.directory '*'
 
-      # --- بخش اضافه‌شده برای نصب اصولی و پایدار پایتون در سرور گیت‌هاب ---
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+      - name: Clean and Setup vcpkg
+        run: |
+          Remove-Item -Path "${{ github.workspace }}/vcpkg" -Recurse -ErrorAction SilentlyContinue
 
       - name: Setup vcpkg with Github Actions binary cache
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgDirectory: 'C:\vcpkg'
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
       - name: Install vcpkg dependencies
         env:
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
           VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
         run: |
-          if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"; then
-            echo "--------------------------------------------------------"
-            echo "!!! VCPKG BUILD FAILED - PRINTING ERRORS ONLY !!!"
-            echo "--------------------------------------------------------"
-            find "$VCPKG_ROOT/buildtrees" -name "*-err.log" -exec echo "--- ERROR LOG: {} ---" \; -exec cat {} \;
-            exit 1
-          fi
+          $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"
         shell: bash
 
       - name: Build HamrahDesk
@@ -136,18 +126,13 @@ jobs:
           mv ./flutter/build/windows/x64/runner/Release ./HamrahDesk
           mv -Force .\usbmmidd_v2 ./HamrahDesk
 
-      - name: find Runner.res
+      - name: Find Runner.res
         continue-on-error: true
         shell: bash
         run: |
           runner_res=$(find . -name "Runner.res");
-          if [ "$runner_res" == "" ]; then
-            echo "Runner.res: not found";
-          else
-            echo "Runner.res: $runner_res";
+          if [ "$runner_res" != "" ]; then
             cp $runner_res ./libs/portable/Runner.res;
-            echo "list ./libs/portable/Runner.res";
-            ls -l ./libs/portable/Runner.res;
           fi
 
       - name: Download RustDeskTempTopMostWindow artifacts
@@ -164,7 +149,6 @@ jobs:
           name: HamrahDesk-unsigned-windows-x86_64
           path: HamrahDesk
 
-      # --- تغییر یافته جهت امنیت کلمات عبور (Secret ها) ---
       - name: Sign HamrahDesk files
         if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != ''
         shell: bash
@@ -187,7 +171,6 @@ jobs:
           mkdir -p ./SignOutput
           mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/HamrahDesk-${{ env.VERSION }}-x86_64.exe
 
-      # --- تغییر یافته جهت امنیت کلمات عبور (Secret ها) ---
       - name: Sign HamrahDesk self-extracted file
         if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != ''
         shell: bash
