@@ -96,14 +96,13 @@ jobs:
       - name: Disable Git safe.directory checks
         run: git config --global --add safe.directory '*'
 
-      # --- گام جدید: پاکسازی و کلون کردن کاملاً دستی vcpkg برای دور زدن باگ گیت ---
+      # --- اصلاح شده: استفاده از دستور rm -rf به جای دستور پاورشل در محیط Bash ---
       - name: Manually Clone vcpkg Repository
         run: |
-          Remove-Item -Path "${{ github.workspace }}/vcpkg" -Recurse -ErrorAction SilentlyContinue
+          rm -rf "${{ github.workspace }}/vcpkg"
           git clone --depth=1 https://github.com/microsoft/vcpkg.git "${{ github.workspace }}/vcpkg"
         shell: bash
 
-      # --- در این استپ پارامتر تعیین کامیت حذف شده و از کلون دستی مرحله قبل استفاده می‌شود ---
       - name: Setup vcpkg with Github Actions binary cache
         uses: lukka/run-vcpkg@v11
         with:
