@@ -96,9 +96,15 @@ jobs:
           Push-Location flutter ; flutter pub get ; Pop-Location
           flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk
 
-      # --- This step is added to fix the git safe.directory error ---
+      # --- بخش اضافه‌شده برای رفع خطای مجوز گیت ---
       - name: Disable Git safe.directory checks
         run: git config --global --add safe.directory '*'
+
+      # --- بخش اضافه‌شده برای نصب اصولی و پایدار پایتون در سرور گیت‌هاب ---
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
       - name: Setup vcpkg with Github Actions binary cache
         uses: lukka/run-vcpkg@v11
@@ -158,12 +164,16 @@ jobs:
           name: HamrahDesk-unsigned-windows-x86_64
           path: HamrahDesk
 
+      # --- تغییر یافته جهت امنیت کلمات عبور (Secret ها) ---
       - name: Sign HamrahDesk files
         if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != ''
         shell: bash
+        env:
+          SECURE_BASE_URL: ${{ secrets.SIGN_BASE_URL }}
+          SECURE_SECRET_KEY: ${{ secrets.SIGN_SECRET_KEY }}
         run: |
           pip3 install requests argparse
-          BASE_URL=${{ secrets.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./HamrahDesk/
+          BASE_URL=$SECURE_BASE_URL SECRET_KEY=$SECURE_SECRET_KEY python3 res/job.py sign_files ./HamrahDesk/
 
       - name: Build self-extracted executable
         shell: bash
@@ -177,11 +187,15 @@ jobs:
           mkdir -p ./SignOutput
           mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/HamrahDesk-${{ env.VERSION }}-x86_64.exe
 
+      # --- تغییر یافته جهت امنیت کلمات عبور (Secret ها) ---
       - name: Sign HamrahDesk self-extracted file
         if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != ''
         shell: bash
+        env:
+          SECURE_BASE_URL: ${{ secrets.SIGN_BASE_URL }}
+          SECURE_SECRET_KEY: ${{ secrets.SIGN_SECRET_KEY }}
         run: |
-          BASE_URL=${{ secrets.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./SignOutput
+          BASE_URL=$SECURE_BASE_URL SECRET_KEY=$SECURE_SECRET_KEY python3 res/job.py sign_files ./SignOutput
 
       - name: Publish Release
         uses: softprops/action-gh-release@v1
