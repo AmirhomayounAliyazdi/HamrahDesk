@@ -99,8 +99,9 @@ jobs:
       - name: Setup and Install vcpkg Dependencies
         shell: bash
         run: |
-          export VCPKG_ROOT="C:/vcpkg"
-          git config --global --add safe.directory "$VCPKG_ROOT"
+          export VCPKG_ROOT="$GITHUB_WORKSPACE/vcpkg"
+          export VCPKG_DEFAULT_TRIPLET="x64-windows-static"
+          export VCPKG_DEFAULT_HOST_TRIPLET="x64-windows-static"
           
           rm -rf "$VCPKG_ROOT"
           git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
@@ -108,9 +109,9 @@ jobs:
           cd "$VCPKG_ROOT"
           ./bootstrap-vcpkg.bat
           
-          cd "${{ github.workspace }}"
+          cd "$GITHUB_WORKSPACE"
           
-          if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed" --overlay-ports=res/vcpkg; then
+          if ! "$VCPKG_ROOT/vcpkg" install --overlay-ports=res/vcpkg; then
             echo "--------------------------------------------------------"
             echo "!!! VCPKG BUILD FAILED - PRINTING ERRORS ONLY !!!"
             echo "--------------------------------------------------------"
