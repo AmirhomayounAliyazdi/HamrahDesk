@@ -99,11 +99,14 @@ jobs:
       - name: Setup and Install vcpkg Dependencies
         shell: bash
         run: |
-          export VCPKG_ROOT="$GITHUB_WORKSPACE/vcpkg"
+          export VCPKG_ROOT="C:/vcpkg"
           export VCPKG_DEFAULT_TRIPLET="x64-windows-static"
           export VCPKG_DEFAULT_HOST_TRIPLET="x64-windows-static"
           
           rm -rf "$VCPKG_ROOT"
+          
+          # مسیر C:/vcpkg مشکل محدودیت طول مسیر (MAX_PATH) در ویندوز را برای aom و ninja برطرف می‌کند
+          # کلون کامل (بدون عمق ۱) برای جلوگیری از خطای missing baseline.json
           git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
           
           cd "$VCPKG_ROOT"
