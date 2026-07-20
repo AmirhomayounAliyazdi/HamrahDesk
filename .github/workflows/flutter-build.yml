@@ -24,8 +24,6 @@ env:
   LLVM_VERSION: "15.0.6"
   FLUTTER_VERSION: "3.19.6"
   TAG_NAME: "${{ inputs.upload-tag }}"
-  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-  VCPKG_COMMIT_ID: "ee9010378b871c5ec4a29dd3d606eb862b53982e"
   VERSION: "1.3.1"
   UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}"
@@ -94,34 +92,33 @@ jobs:
           Push-Location flutter ; flutter pub get ; Pop-Location
           flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk
 
-      # --- تنظیمات درست گیت برای C:\vcpkg ---
-      - name: Prepare C:\vcpkg repository
-        run: |
-          git config --global --add safe.directory C:/vcpkg
-          cd C:/vcpkg
-          git fetch --unshallow || git fetch origin
+      - name: Disable Git safe.directory checks
+        run: git config --global --add safe.directory '*'
+
+      # --- نصب مستقیم و بدون واسطه vcpkg (حذف اکشن lukka/run-vcpkg) ---
+      - name: Setup and Install vcpkg Dependencies
         shell: bash
-
-      - name: Setup vcpkg with Github Actions binary cache
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgDirectory: 'C:\vcpkg'
-          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
-          doNotCache: false
-
-      - name: Install vcpkg dependencies
-        env:
-          VCPKG_ROOT: C:\vcpkg
-          VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
         run: |
-          if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"; then
+          export VCPKG_ROOT="C:/vcpkg"
+          git config --global --add safe.directory "$VCPKG_ROOT"
+          
+          if [ ! -f "$VCPKG_ROOT/vcpkg.exe" ]; then
+            cd /c
+            rm -rf vcpkg
+            git clone --depth=1 https://github.com/microsoft/vcpkg.git
+            cd vcpkg
+            ./bootstrap-vcpkg.bat
+          fi
+
+          cd "$VCPKG_ROOT"
+          
+          if ! ./vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"; then
             echo "--------------------------------------------------------"
             echo "!!! VCPKG BUILD FAILED - PRINTING ERRORS ONLY !!!"
             echo "--------------------------------------------------------"
             find "$VCPKG_ROOT/buildtrees" -name "*-err.log" -exec echo "--- ERROR LOG: {} ---" \; -exec cat {} \;
             exit 1
           fi
-        shell: bash
 
       - name: Build HamrahDesk
         run: |
