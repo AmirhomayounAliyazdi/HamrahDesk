@@ -97,11 +97,11 @@ jobs:
       - name: Disable Git safe.directory checks
         run: git config --global --add safe.directory '*'
 
-      # --- کلون کامل vcpkg و سوییچ دقیق به Commit ID مورد نیاز RustDesk ---
+      # --- تغییر مهم: کلون از ریپازیتوری اختصاصی rustdesk/vcpkg ---
       - name: Clone and Checkout Specific vcpkg Commit
         run: |
           rm -rf "${{ github.workspace }}/vcpkg"
-          git clone https://github.com/microsoft/vcpkg.git "${{ github.workspace }}/vcpkg"
+          git clone https://github.com/rustdesk/vcpkg.git "${{ github.workspace }}/vcpkg"
           cd "${{ github.workspace }}/vcpkg"
           git checkout ${{ env.VCPKG_COMMIT_ID }}
         shell: bash
@@ -110,6 +110,7 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
       - name: Install vcpkg dependencies
