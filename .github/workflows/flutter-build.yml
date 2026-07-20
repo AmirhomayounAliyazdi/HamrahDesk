@@ -94,28 +94,25 @@ jobs:
           Push-Location flutter ; flutter pub get ; Pop-Location
           flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk
 
-      - name: Disable Git safe.directory checks
-        run: git config --global --add safe.directory '*'
-
-      # --- تغییر مهم: کلون از ریپازیتوری اختصاصی rustdesk/vcpkg ---
-      - name: Clone and Checkout Specific vcpkg Commit
+      # --- گام کلیدی: دریافت دقیق Commit مدنظر از مایکروسافت روی نسخه پیش‌فرض ویندوز ---
+      - name: Prepare C:\vcpkg repository
         run: |
-          rm -rf "${{ github.workspace }}/vcpkg"
-          git clone https://github.com/rustdesk/vcpkg.git "${{ github.workspace }}/vcpkg"
-          cd "${{ github.workspace }}/vcpkg"
+          git config --global --add safe.directory C:/vcpkg
+          cd C:/vcpkg
+          git fetch origin ${{ env.VCPKG_COMMIT_ID }}
           git checkout ${{ env.VCPKG_COMMIT_ID }}
         shell: bash
 
       - name: Setup vcpkg with Github Actions binary cache
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          vcpkgDirectory: 'C:\vcpkg'
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
       - name: Install vcpkg dependencies
         env:
-          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+          VCPKG_ROOT: C:\vcpkg
           VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
         run: |
           if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"; then
