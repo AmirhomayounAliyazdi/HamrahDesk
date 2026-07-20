@@ -94,13 +94,12 @@ jobs:
           Push-Location flutter ; flutter pub get ; Pop-Location
           flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart --c-output ./flutter/windows/runner/bridge_generated.h --class-name HamrahDesk
 
-      # --- گام کلیدی: دریافت دقیق Commit مدنظر از مایکروسافت روی نسخه پیش‌فرض ویندوز ---
+      # --- تنظیمات درست گیت برای C:\vcpkg ---
       - name: Prepare C:\vcpkg repository
         run: |
           git config --global --add safe.directory C:/vcpkg
           cd C:/vcpkg
-          git fetch origin ${{ env.VCPKG_COMMIT_ID }}
-          git checkout ${{ env.VCPKG_COMMIT_ID }}
+          git fetch --unshallow || git fetch origin
         shell: bash
 
       - name: Setup vcpkg with Github Actions binary cache
